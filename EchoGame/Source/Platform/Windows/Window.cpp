@@ -7,16 +7,53 @@
 
 namespace Echo
 {
+    namespace
+    {
+        bool TryMapKey(
+            WPARAM virtualKey,
+            Key& key
+        ) noexcept
+        {
+            switch (virtualKey)
+            {
+            case 'W':
+                key = Key::W;
+                return true;
+
+            case 'A':
+                key = Key::A;
+                return true;
+
+            case 'S':
+                key = Key::S;
+                return true;
+
+            case 'D':
+                key = Key::D;
+                return true;
+
+            default:
+                return false;
+            }
+        }
+    }
+
     Window::Window(
+        Keyboard& keyboard,
         int clientWidth,
         int clientHeight,
         const wchar_t* title
     )
-        : m_clientWidth(
-            static_cast<unsigned int>(clientWidth)
+        : m_keyboard(keyboard),
+        m_clientWidth(
+            static_cast<unsigned int>(
+                clientWidth
+                )
         ),
         m_clientHeight(
-            static_cast<unsigned int>(clientHeight)
+            static_cast<unsigned int>(
+                clientHeight
+                )
         )
     {
         if (clientWidth <= 0 || clientHeight <= 0)
@@ -193,6 +230,47 @@ namespace Echo
     {
         switch (message)
         {
+
+        case WM_KEYDOWN:
+        {
+            Key key{};
+
+            if (TryMapKey(wParam, key))
+            {
+                m_keyboard.SetKeyState(
+                    key,
+                    true
+                );
+
+                return 0;
+            }
+
+            break;
+        }
+
+        case WM_KEYUP:
+        {
+            Key key{};
+
+            if (TryMapKey(wParam, key))
+            {
+                m_keyboard.SetKeyState(
+                    key,
+                    false
+                );
+
+                return 0;
+            }
+
+            break;
+        }
+
+        case WM_KILLFOCUS:
+        {
+            m_keyboard.Reset();
+            return 0;
+        }
+
         case WM_SIZE:
         {
             // Do not resize Direct3D buffers to 0x0

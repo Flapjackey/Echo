@@ -17,6 +17,7 @@ namespace Echo
 {
     Application::Application()
         : m_window(
+            m_keyboard,
             ClientWidth,
             ClientHeight,
             L"EchoGame"
@@ -90,10 +91,10 @@ namespace Echo
             );
 
             m_quadRenderer.Draw(
-                0.0f,           // Position X.
-                0.0f,           // Position Y.
-                0.8f,           // Width.
-                0.8f,           // Height.
+                m_quadPositionX,
+                m_quadPositionY,
+                0.4f,
+                0.4f,
                 m_quadRotation,
                 m_aspectRatio
             );
@@ -109,12 +110,59 @@ namespace Echo
         return 0;
     }
 
-    void Application::FixedUpdate(double deltaTime)
+    void Application::FixedUpdate(
+        double deltaTime
+    )
     {
-        // Player movement, enemies, projectiles and
-        // collision detection will be updated here.
+        float directionX = 0.0f;
+        float directionY = 0.0f;
 
-        (void)deltaTime;
+        if (m_keyboard.IsDown(Key::A))
+        {
+            directionX -= 1.0f;
+        }
+
+        if (m_keyboard.IsDown(Key::D))
+        {
+            directionX += 1.0f;
+        }
+
+        if (m_keyboard.IsDown(Key::W))
+        {
+            directionY += 1.0f;
+        }
+
+        if (m_keyboard.IsDown(Key::S))
+        {
+            directionY -= 1.0f;
+        }
+
+        // Prevent faster diagonal movement.
+        if (directionX != 0.0f &&
+            directionY != 0.0f)
+        {
+            constexpr float diagonalScale =
+                0.70710678f;
+
+            directionX *= diagonalScale;
+            directionY *= diagonalScale;
+        }
+
+        constexpr float movementSpeed =
+            1.0f;
+
+        const float fixedDeltaTime =
+            static_cast<float>(deltaTime);
+
+        m_quadPositionX +=
+            directionX *
+            movementSpeed *
+            fixedDeltaTime;
+
+        m_quadPositionY +=
+            directionY *
+            movementSpeed *
+            fixedDeltaTime;
     }
 
     void Application::Update(double deltaTime)
