@@ -2,6 +2,7 @@
 
 #include "Platform/Windows/WindowsCommon.h"
 #include "Input/Keyboard.h"
+#include "Input/Mouse.h"
 #include <string>
 
 namespace Echo
@@ -11,6 +12,7 @@ namespace Echo
     public:
         Window(
             Keyboard& keyboard,
+            Mouse& mouse,
             int clientWidth,
             int clientHeight,
             const wchar_t* title
@@ -25,6 +27,9 @@ namespace Echo
 
         HWND GetHandle() const noexcept;
 
+        unsigned int GetClientWidth() const noexcept;
+        unsigned int GetClientHeight() const noexcept;
+
         void SetTitle(
             const std::wstring& title
         ) noexcept;
@@ -37,6 +42,7 @@ namespace Echo
 
     private:
         Keyboard& m_keyboard;
+        Mouse& m_mouse;
 
         LRESULT HandleMessage(
             HWND window,

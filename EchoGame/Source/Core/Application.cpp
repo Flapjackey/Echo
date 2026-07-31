@@ -18,6 +18,7 @@ namespace Echo
     Application::Application()
         : m_window(
             m_keyboard,
+            m_mouse,
             ClientWidth,
             ClientHeight,
             L"EchoGame"
@@ -91,20 +92,29 @@ namespace Echo
             );
 
             m_quadRenderer.Draw(
-                m_quadPositionX,
-                m_quadPositionY,
-                0.4f,
-                0.4f,
-                m_quadRotation,
+                m_player.GetPositionX(),
+                m_player.GetPositionY(),
+                m_player.GetWidth(),
+                m_player.GetHeight(),
+                m_player.GetRotation(),
                 m_aspectRatio
             );
+
+            for (const Projectile& projectile : m_projectiles)
+            {
+                m_quadRenderer.Draw(
+                    projectile.GetPositionX(),
+                    projectile.GetPositionY(),
+                    projectile.GetWidth(),
+                    projectile.GetHeight(),
+                    projectile.GetRotation(),
+                    m_aspectRatio
+                );
+            }
 
             m_graphics.EndFrame();
 
             UpdateStatistics(frameTime);
-
-            // Temporary protection from using an entire CPU core.
-            // Later vertical synchronization will replace this.
         }
 
         return 0;
@@ -114,61 +124,144 @@ namespace Echo
         double deltaTime
     )
     {
-        float directionX = 0.0f;
-        float directionY = 0.0f;
-
-        if (m_keyboard.IsDown(Key::A))
-        {
-            directionX -= 1.0f;
-        }
-
-        if (m_keyboard.IsDown(Key::D))
-        {
-            directionX += 1.0f;
-        }
-
-        if (m_keyboard.IsDown(Key::W))
-        {
-            directionY += 1.0f;
-        }
-
-        if (m_keyboard.IsDown(Key::S))
-        {
-            directionY -= 1.0f;
-        }
-
-        // Prevent faster diagonal movement.
-        if (directionX != 0.0f &&
-            directionY != 0.0f)
-        {
-            constexpr float diagonalScale =
-                0.70710678f;
-
-            directionX *= diagonalScale;
-            directionY *= diagonalScale;
-        }
-
-        constexpr float movementSpeed =
-            1.0f;
+        m_player.UpdateMovement(
+            m_keyboard,
+            deltaTime
+        );
 
         const float fixedDeltaTime =
             static_cast<float>(deltaTime);
 
-        m_quadPositionX +=
-            directionX *
-            movementSpeed *
-            fixedDeltaTime;
+        if (m_fireCooldown > 0.0f)
+        {
+            m_fireCooldown -=
+                fixedDeltaTime;
+        }
 
-        m_quadPositionY +=
-            directionY *
-            movementSpeed *
-            fixedDeltaTime;
+        if (m_mouse.IsLeftButtonDown())
+        {
+            TryFireProjectile();
+        }
+
+        for (Projectile& projectile : m_projectiles)
+        {
+            projectile.Update(deltaTime);
+        }
+
+        const auto firstExpiredProjectile =
+            std::remove_if(
+                m_projectiles.begin(),
+                m_projectiles.end(),
+                [](const Projectile& projectile)
+                {
+                    return !projectile.IsAlive();
+                }
+            );
+
+        m_projectiles.erase(
+            firstExpiredProjectile,
+            m_projectiles.end()
+        );
     }
 
-    void Application::Update(double deltaTime)
+    void Application::TryFireProjectile()
     {
-        m_quadRotation +=
-            static_cast<float>(deltaTime);
+        if (m_fireCooldown > 0.0f)
+        {
+            return;
+        }
+
+        constexpr float fireInterval =
+            0.15f;
+
+        const float forwardX =
+            m_player.GetForwardX();
+
+        const float forwardY =
+            m_player.GetForwardY();
+
+        constexpr float spawnDistance =
+            0.32f;
+
+        const float spawnX =
+            m_player.GetPositionX() +
+            forwardX *
+            spawnDistance;
+
+        const float spawnY =
+            m_player.GetPositionY() +
+            forwardY *
+            spawnDistance;
+
+        m_projectiles.emplace_back(
+            spawnX,
+            spawnY,
+            forwardX,
+            forwardY
+        );
+
+        m_fireCooldown =
+            fireInterval;
+    }
+
+    void Application::Update(
+        double deltaTime
+    )
+    {
+        (void)deltaTime;
+
+        if (!m_mouse.IsInsideWindow())
+        {
+            return;
+        }
+
+        const float clientWidth =
+            static_cast<float>(
+                m_window.GetClientWidth()
+                );
+
+        const float clientHeight =
+            static_cast<float>(
+                m_window.GetClientHeight()
+                );
+
+        if (clientWidth <= 0.0f ||
+            clientHeight <= 0.0f)
+        {
+            return;
+        }
+
+        // Convert mouse X from pixels to range [-1, 1].
+        const float normalizedMouseX =
+            2.0f *
+            static_cast<float>(
+                m_mouse.GetX()
+                ) /
+            clientWidth -
+            1.0f;
+
+        // Windows Y grows downward, but game Y grows upward.
+        const float normalizedMouseY =
+            1.0f -
+            2.0f *
+            static_cast<float>(
+                m_mouse.GetY()
+                ) /
+            clientHeight;
+
+        // The shader divides world X by aspectRatio.
+        // Reverse that conversion for the mouse.
+        const float mouseWorldX =
+            normalizedMouseX *
+            m_aspectRatio;
+
+        const float mouseWorldY =
+            normalizedMouseY;
+
+        m_player.AimAt(
+            mouseWorldX,
+            mouseWorldY
+        );
     }
 
     void Application::UpdateStatistics(double deltaTime)
