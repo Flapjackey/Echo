@@ -291,7 +291,7 @@ namespace Echo
             return;
         }
 
-        const PlayerInputPacket packet =
+        const NetworkPacket packet =
             CreatePlayerInputPacket(
                 input,
                 m_nextSequence
@@ -299,28 +299,31 @@ namespace Echo
 
         ++m_nextSequence;
 
-        // No part of the current packet was sent yet.
-        // Replace it with the newest input.
-        if (!m_hasPendingSendPacket ||
-            m_pendingSendOffset == 0)
+        QueuePacket(
+            packet
+        );
+    }
+
+    void NetworkSession::QueueWorldSnapshot(
+        const NetworkWorldSnapshot& snapshot
+    ) noexcept
+    {
+        if (!IsConnected())
         {
-            m_pendingSendPacket =
-                packet;
-
-            m_pendingSendOffset = 0;
-            m_hasPendingSendPacket = true;
-
             return;
         }
 
-        // Part of the current packet was already sent.
-        // Keep it intact and remember only the newest
-        // packet that should follow it.
-        m_queuedSendPacket =
-            packet;
+        const NetworkPacket packet =
+            CreateWorldSnapshotPacket(
+                snapshot,
+                m_nextSequence
+            );
 
-        m_hasQueuedSendPacket =
-            true;
+        ++m_nextSequence;
+
+        QueuePacket(
+            packet
+        );
     }
 
     bool NetworkSession::TryConsumePlayerInput(
@@ -339,6 +342,52 @@ namespace Echo
             false;
 
         return true;
+    }
+
+    bool NetworkSession::TryConsumeWorldSnapshot(
+        NetworkWorldSnapshot& snapshot
+    ) noexcept
+    {
+        if (!m_hasReceivedWorldSnapshot)
+        {
+            return false;
+        }
+
+        snapshot =
+            m_latestReceivedWorldSnapshot;
+
+        m_hasReceivedWorldSnapshot =
+            false;
+
+        return true;
+    }
+
+    void NetworkSession::QueuePacket(
+        const NetworkPacket& packet
+    ) noexcept
+    {
+        // Nothing from the current packet was sent.
+        // Replace it with the newest packet.
+        if (!m_hasPendingSendPacket ||
+            m_pendingSendOffset == 0)
+        {
+            m_pendingSendPacket =
+                packet;
+
+            m_pendingSendOffset = 0;
+
+            m_hasPendingSendPacket = true;
+
+            return;
+        }
+
+        // Part of the current packet was already sent.
+        // Preserve it and queue only the newest packet.
+        m_queuedSendPacket =
+            packet;
+
+        m_hasQueuedSendPacket =
+            true;
     }
 
     bool NetworkSession::IsConnected()
@@ -642,7 +691,7 @@ namespace Echo
                 }
 
                 SetError(
-                    L"Failed to send player input.",
+                    L"Failed to send network packet.",
                     errorCode
                 );
 
@@ -763,11 +812,8 @@ namespace Echo
                 return;
             }
 
-            NetworkPlayerInput input{};
-
-            if (!DecodePlayerInputPacket(
-                m_receivePacket,
-                input
+            if (!HasValidNetworkHeader(
+                m_receivePacket
             ))
             {
                 SetError(
@@ -778,14 +824,76 @@ namespace Echo
                 return;
             }
 
-            m_latestReceivedPlayerInput =
-                input;
+            switch (m_receivePacket.type)
+            {
+            case NetworkPacketType::PlayerInput:
+            {
+                NetworkPlayerInput input{};
 
-            m_hasReceivedPlayerInput =
-                true;
+                if (!DecodePlayerInputPacket(
+                    m_receivePacket,
+                    input
+                ))
+                {
+                    SetError(
+                        L"Failed to decode "
+                        L"player input.",
+                        0
+                    );
+
+                    return;
+                }
+
+                m_latestReceivedPlayerInput =
+                    input;
+
+                m_hasReceivedPlayerInput =
+                    true;
+
+                break;
+            }
+
+            case NetworkPacketType::WorldSnapshot:
+            {
+                NetworkWorldSnapshot snapshot{};
+
+                if (!DecodeWorldSnapshotPacket(
+                    m_receivePacket,
+                    snapshot
+                ))
+                {
+                    SetError(
+                        L"Failed to decode "
+                        L"world snapshot.",
+                        0
+                    );
+
+                    return;
+                }
+
+                m_latestReceivedWorldSnapshot =
+                    snapshot;
+
+                m_hasReceivedWorldSnapshot =
+                    true;
+
+                break;
+            }
+
+            default:
+            {
+                SetError(
+                    L"Received an unknown "
+                    L"packet type.",
+                    0
+                );
+
+                return;
+            }
+            }
 
             m_receivePacket =
-                PlayerInputPacket{};
+                NetworkPacket{};
 
             m_receiveOffset = 0;
         }
@@ -795,18 +903,18 @@ namespace Echo
         noexcept
     {
         m_pendingSendPacket =
-            PlayerInputPacket{};
+            NetworkPacket{};
 
         m_pendingSendOffset = 0;
         m_hasPendingSendPacket = false;
 
         m_queuedSendPacket =
-            PlayerInputPacket{};
+            NetworkPacket{};
 
         m_hasQueuedSendPacket = false;
 
         m_receivePacket =
-            PlayerInputPacket{};
+            NetworkPacket{};
 
         m_receiveOffset = 0;
 
@@ -814,6 +922,11 @@ namespace Echo
             NetworkPlayerInput{};
 
         m_hasReceivedPlayerInput = false;
+
+        m_latestReceivedWorldSnapshot =
+            NetworkWorldSnapshot{};
+
+        m_hasReceivedWorldSnapshot = false;
 
         m_nextSequence = 1;
     }

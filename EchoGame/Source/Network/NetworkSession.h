@@ -1,4 +1,5 @@
 #pragma once
+
 #include "Network/NetworkProtocol.h"
 
 #include <cstddef>
@@ -62,8 +63,16 @@ namespace Echo
             const NetworkPlayerInput& input
         ) noexcept;
 
+        void QueueWorldSnapshot(
+            const NetworkWorldSnapshot& snapshot
+        ) noexcept;
+
         bool TryConsumePlayerInput(
             NetworkPlayerInput& input
+        ) noexcept;
+
+        bool TryConsumeWorldSnapshot(
+            NetworkWorldSnapshot& snapshot
         ) noexcept;
 
         bool IsConnected() const noexcept;
@@ -91,6 +100,10 @@ namespace Echo
         void UpdateHost();
         void UpdateClient();
         void UpdateConnectedState();
+
+        void QueuePacket(
+            const NetworkPacket& packet
+        ) noexcept;
 
         void FlushOutgoingData();
         void ReceiveIncomingData();
@@ -120,20 +133,32 @@ namespace Echo
         std::wstring m_statusMessage =
             L"Disconnected";
 
-        PlayerInputPacket m_pendingSendPacket{};
+        NetworkPacket
+            m_pendingSendPacket{};
+
         std::size_t m_pendingSendOffset = 0;
+
         bool m_hasPendingSendPacket = false;
 
-        PlayerInputPacket m_queuedSendPacket{};
+        NetworkPacket
+            m_queuedSendPacket{};
+
         bool m_hasQueuedSendPacket = false;
 
-        PlayerInputPacket m_receivePacket{};
+        NetworkPacket
+            m_receivePacket{};
+
         std::size_t m_receiveOffset = 0;
 
         NetworkPlayerInput
             m_latestReceivedPlayerInput{};
 
         bool m_hasReceivedPlayerInput = false;
+
+        NetworkWorldSnapshot
+            m_latestReceivedWorldSnapshot{};
+
+        bool m_hasReceivedWorldSnapshot = false;
 
         std::uint32_t m_nextSequence = 1;
     };

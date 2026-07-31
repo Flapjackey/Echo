@@ -52,6 +52,14 @@ namespace Echo
             const NetworkPlayerInput& input
         ) const noexcept;
 
+        NetworkWorldSnapshot
+            BuildWorldSnapshot()
+            const noexcept;
+
+        void ApplyWorldSnapshot(
+            const NetworkWorldSnapshot& snapshot
+        ) noexcept;
+
         void HandleApplicationInput();
 
         void EnterState(
@@ -76,6 +84,8 @@ namespace Echo
 
         NetworkPlayerInput
             m_latestRemotePlayerInput{};
+
+        bool m_hasReceivedWorldSnapshot = false;
 
         Window m_window;
 

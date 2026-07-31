@@ -1,10 +1,15 @@
 #pragma once
 
+#include <array>
+#include <cstddef>
 #include <cstdint>
 #include <type_traits>
 
 namespace Echo
 {
+    constexpr std::size_t
+        NetworkPlayerCount = 2;
+
     struct NetworkPlayerInput final
     {
         float movementX = 0.0f;
@@ -17,19 +22,35 @@ namespace Echo
         bool fire = false;
     };
 
+    struct NetworkPlayerState final
+    {
+        float positionX = 0.0f;
+        float positionY = 0.0f;
+        float rotation = 0.0f;
+    };
+
+    struct NetworkWorldSnapshot final
+    {
+        std::array<
+            NetworkPlayerState,
+            NetworkPlayerCount
+        > players{};
+    };
+
     enum class NetworkPacketType :
         std::uint16_t
     {
-        PlayerInput = 1
+        PlayerInput = 1,
+        WorldSnapshot = 2
     };
 
-    struct PlayerInputPacket final
+    struct NetworkPacket final
     {
         static constexpr std::uint32_t
             ExpectedMagic = 0x4543484F;
 
         static constexpr std::uint16_t
-            ExpectedVersion = 1;
+            ExpectedVersion = 2;
 
         std::uint32_t magic =
             ExpectedMagic;
@@ -42,6 +63,7 @@ namespace Echo
 
         std::uint32_t sequence = 0;
 
+        // Player input payload.
         float movementX = 0.0f;
         float movementY = 0.0f;
 
@@ -52,27 +74,47 @@ namespace Echo
         std::uint8_t fire = 0;
 
         std::uint16_t reserved = 0;
+
+        // World snapshot payload.
+        std::array<
+            NetworkPlayerState,
+            NetworkPlayerCount
+        > players{};
     };
 
     static_assert(
-        sizeof(PlayerInputPacket) == 32,
-        "Unexpected PlayerInputPacket size."
+        sizeof(NetworkPacket) == 56,
+        "Unexpected NetworkPacket size."
         );
 
     static_assert(
         std::is_trivially_copyable_v<
-        PlayerInputPacket
+        NetworkPacket
         >,
         "Network packet must be trivially copyable."
         );
 
-    inline PlayerInputPacket
+    inline bool HasValidNetworkHeader(
+        const NetworkPacket& packet
+    ) noexcept
+    {
+        return
+            packet.magic ==
+            NetworkPacket::ExpectedMagic &&
+            packet.version ==
+            NetworkPacket::ExpectedVersion;
+    }
+
+    inline NetworkPacket
         CreatePlayerInputPacket(
             const NetworkPlayerInput& input,
             std::uint32_t sequence
         ) noexcept
     {
-        PlayerInputPacket packet{};
+        NetworkPacket packet{};
+
+        packet.type =
+            NetworkPacketType::PlayerInput;
 
         packet.sequence =
             sequence;
@@ -99,14 +141,11 @@ namespace Echo
     }
 
     inline bool DecodePlayerInputPacket(
-        const PlayerInputPacket& packet,
+        const NetworkPacket& packet,
         NetworkPlayerInput& input
     ) noexcept
     {
-        if (packet.magic !=
-            PlayerInputPacket::ExpectedMagic ||
-            packet.version !=
-            PlayerInputPacket::ExpectedVersion ||
+        if (!HasValidNetworkHeader(packet) ||
             packet.type !=
             NetworkPacketType::PlayerInput)
         {
@@ -130,6 +169,44 @@ namespace Echo
 
         input.fire =
             packet.fire != 0;
+
+        return true;
+    }
+
+    inline NetworkPacket
+        CreateWorldSnapshotPacket(
+            const NetworkWorldSnapshot& snapshot,
+            std::uint32_t sequence
+        ) noexcept
+    {
+        NetworkPacket packet{};
+
+        packet.type =
+            NetworkPacketType::WorldSnapshot;
+
+        packet.sequence =
+            sequence;
+
+        packet.players =
+            snapshot.players;
+
+        return packet;
+    }
+
+    inline bool DecodeWorldSnapshotPacket(
+        const NetworkPacket& packet,
+        NetworkWorldSnapshot& snapshot
+    ) noexcept
+    {
+        if (!HasValidNetworkHeader(packet) ||
+            packet.type !=
+            NetworkPacketType::WorldSnapshot)
+        {
+            return false;
+        }
+
+        snapshot.players =
+            packet.players;
 
         return true;
     }

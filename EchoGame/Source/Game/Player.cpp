@@ -79,6 +79,22 @@ namespace Echo
         }
     }
 
+    void Player::SetNetworkState(
+        float positionX,
+        float positionY,
+        float rotation
+    ) noexcept
+    {
+        m_positionX =
+            positionX;
+
+        m_positionY =
+            positionY;
+
+        m_rotation =
+            rotation;
+    }
+
     float Player::GetPositionX() const noexcept
     {
         return m_positionX;
