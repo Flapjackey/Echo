@@ -1,44 +1,79 @@
 #include "Game/GameSession.h"
 
+#include "Game/World/Levels/TestArena.h"
+
 #include <algorithm>
 
 namespace Echo
 {
     void GameSession::Reset()
     {
-        m_player =
-            Player{};
+        m_level =
+            CreateTestArena();
+
+        for (std::size_t playerIndex = 0;
+            playerIndex < PlayerCount;
+            ++playerIndex)
+        {
+            const PlayerSpawnPoint& spawn =
+                m_level.GetPlayerSpawn(
+                    playerIndex
+                );
+
+            m_players[playerIndex] =
+                Player(
+                    spawn.positionX,
+                    spawn.positionY
+                );
+        }
 
         m_projectiles.clear();
 
-        m_fireCooldown =
-            0.0f;
+        m_fireCooldowns.fill(
+            0.0f
+        );
     }
 
     void GameSession::Update(
-        const PlayerCommand& playerCommand,
+        const PlayerCommands& playerCommands,
         double deltaTime
     )
     {
-        m_player.Update(
-            playerCommand,
-            deltaTime
-        );
+        for (std::size_t playerIndex = 0;
+            playerIndex < PlayerCount;
+            ++playerIndex)
+        {
+            m_players[playerIndex].Update(
+                playerCommands[playerIndex],
+                deltaTime
+            );
+        }
 
         const float fixedDeltaTime =
             static_cast<float>(
                 deltaTime
                 );
 
-        if (m_fireCooldown > 0.0f)
+        for (float& fireCooldown :
+            m_fireCooldowns)
         {
-            m_fireCooldown -=
-                fixedDeltaTime;
+            if (fireCooldown > 0.0f)
+            {
+                fireCooldown -=
+                    fixedDeltaTime;
+            }
         }
 
-        if (playerCommand.fire)
+        for (std::size_t playerIndex = 0;
+            playerIndex < PlayerCount;
+            ++playerIndex)
         {
-            TryFireProjectile();
+            if (playerCommands[playerIndex].fire)
+            {
+                TryFireProjectile(
+                    playerIndex
+                );
+            }
         }
 
         for (Projectile& projectile :
@@ -68,10 +103,30 @@ namespace Echo
         );
     }
 
-    const Player&
-        GameSession::GetPlayer() const noexcept
+    const Player& GameSession::GetPlayer(
+        std::size_t playerIndex
+    ) const noexcept
     {
-        return m_player;
+        if (playerIndex >= PlayerCount)
+        {
+            return m_players[0];
+        }
+
+        return m_players[playerIndex];
+    }
+
+    const std::array<
+        Player,
+        GameSession::PlayerCount
+    >& GameSession::GetPlayers() const noexcept
+    {
+        return m_players;
+    }
+
+    const Level&
+        GameSession::GetLevel() const noexcept
+    {
+        return m_level;
     }
 
     const std::vector<Projectile>&
@@ -80,9 +135,19 @@ namespace Echo
         return m_projectiles;
     }
 
-    void GameSession::TryFireProjectile()
+    void GameSession::TryFireProjectile(
+        std::size_t playerIndex
+    )
     {
-        if (m_fireCooldown > 0.0f)
+        if (playerIndex >= PlayerCount)
+        {
+            return;
+        }
+
+        float& fireCooldown =
+            m_fireCooldowns[playerIndex];
+
+        if (fireCooldown > 0.0f)
         {
             return;
         }
@@ -93,19 +158,22 @@ namespace Echo
         constexpr float SpawnDistance =
             0.32f;
 
+        const Player& player =
+            m_players[playerIndex];
+
         const float forwardX =
-            m_player.GetForwardX();
+            player.GetForwardX();
 
         const float forwardY =
-            m_player.GetForwardY();
+            player.GetForwardY();
 
         const float spawnX =
-            m_player.GetPositionX() +
+            player.GetPositionX() +
             forwardX *
             SpawnDistance;
 
         const float spawnY =
-            m_player.GetPositionY() +
+            player.GetPositionY() +
             forwardY *
             SpawnDistance;
 
@@ -116,7 +184,7 @@ namespace Echo
             forwardY
         );
 
-        m_fireCooldown =
+        fireCooldown =
             FireInterval;
     }
 }

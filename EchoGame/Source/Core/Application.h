@@ -26,12 +26,13 @@ namespace Echo
 
     private:
         void FixedUpdate(
-            const PlayerCommand& playerCommand,
+            const GameSession::PlayerCommands&
+            playerCommands,
             double deltaTime
         );
 
-        PlayerCommand
-            BuildLocalPlayerCommand()
+        GameSession::PlayerCommands
+            BuildLocalPlayerCommands()
             const noexcept;
 
         void HandleApplicationInput();
