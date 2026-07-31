@@ -105,29 +105,7 @@ namespace Echo
         GraphicsDevice& graphics
     )
     {
-        D3D11_BUFFER_DESC
-            constantBufferDescription{};
-
-        constantBufferDescription.ByteWidth =
-            sizeof(TransformBuffer);
-
-        constantBufferDescription.Usage =
-            D3D11_USAGE_DYNAMIC;
-
-        constantBufferDescription.BindFlags =
-            D3D11_BIND_CONSTANT_BUFFER;
-
-        constantBufferDescription.CPUAccessFlags =
-            D3D11_CPU_ACCESS_WRITE;
-
-        ThrowIfFailed(
-            device->CreateBuffer(
-                &constantBufferDescription,
-                nullptr,
-                m_constantBuffer.GetAddressOf()
-            ),
-            "Failed to create transform constant buffer."
-        );
+        
 
         ID3D11Device* device =
             graphics.GetDevice();
@@ -296,6 +274,29 @@ namespace Echo
                 m_indexBuffer.GetAddressOf()
             ),
             "Failed to create quad index buffer."
+        );
+        D3D11_BUFFER_DESC
+            constantBufferDescription{};
+
+        constantBufferDescription.ByteWidth =
+            sizeof(TransformBuffer);
+
+        constantBufferDescription.Usage =
+            D3D11_USAGE_DYNAMIC;
+
+        constantBufferDescription.BindFlags =
+            D3D11_BIND_CONSTANT_BUFFER;
+
+        constantBufferDescription.CPUAccessFlags =
+            D3D11_CPU_ACCESS_WRITE;
+
+        ThrowIfFailed(
+            device->CreateBuffer(
+                &constantBufferDescription,
+                nullptr,
+                m_constantBuffer.GetAddressOf()
+            ),
+            "Failed to create transform constant buffer."
         );
     }
 
