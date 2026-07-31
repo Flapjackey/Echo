@@ -1,3 +1,7 @@
+#pragma once
+
+#include "Platform/Windows/WindowsCommon.h"
+
 #include <string>
 
 namespace Echo
@@ -13,17 +17,16 @@ namespace Echo
 
         ~Window();
 
-        // Запрещаем случайное копирование окна.
         Window(const Window&) = delete;
         Window& operator=(const Window&) = delete;
 
-        // Обрабатывает сообщения Windows.
-        // Возвращает false, когда программу нужно закрыть.
         bool ProcessMessages() noexcept;
 
         HWND GetHandle() const noexcept;
 
-        void SetTitle(const std::wstring& title) noexcept;
+        void SetTitle(
+            const std::wstring& title
+        ) noexcept;
 
     private:
         static LRESULT CALLBACK WindowProcedure(
