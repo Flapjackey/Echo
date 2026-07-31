@@ -18,6 +18,21 @@ namespace
         float color[3];
     };
 
+    struct alignas(16) TransformBuffer
+    {
+        float position[2];
+        float size[2];
+
+        float rotation;
+        float aspectRatio;
+        float padding[2];
+    };
+
+    static_assert(
+        sizeof(TransformBuffer) % 16 == 0,
+        "Constant buffer size must be a multiple of 16 bytes."
+        );
+
     void ThrowIfFailed(
         HRESULT result,
         const char* message
@@ -90,6 +105,30 @@ namespace Echo
         GraphicsDevice& graphics
     )
     {
+        D3D11_BUFFER_DESC
+            constantBufferDescription{};
+
+        constantBufferDescription.ByteWidth =
+            sizeof(TransformBuffer);
+
+        constantBufferDescription.Usage =
+            D3D11_USAGE_DYNAMIC;
+
+        constantBufferDescription.BindFlags =
+            D3D11_BIND_CONSTANT_BUFFER;
+
+        constantBufferDescription.CPUAccessFlags =
+            D3D11_CPU_ACCESS_WRITE;
+
+        ThrowIfFailed(
+            device->CreateBuffer(
+                &constantBufferDescription,
+                nullptr,
+                m_constantBuffer.GetAddressOf()
+            ),
+            "Failed to create transform constant buffer."
+        );
+
         ID3D11Device* device =
             graphics.GetDevice();
 
@@ -260,8 +299,56 @@ namespace Echo
         );
     }
 
-    void QuadRenderer::Draw() noexcept
+    void QuadRenderer::Draw(
+        float positionX,
+        float positionY,
+        float width,
+        float height,
+        float rotation,
+        float aspectRatio
+    )
     {
+        if (aspectRatio <= 0.0f)
+        {
+            return;
+        }
+
+        D3D11_MAPPED_SUBRESOURCE
+            mappedResource{};
+
+        ThrowIfFailed(
+            m_context->Map(
+                m_constantBuffer.Get(),
+                0,
+                D3D11_MAP_WRITE_DISCARD,
+                0,
+                &mappedResource
+            ),
+            "Failed to update transform constant buffer."
+        );
+
+        auto* transform =
+            static_cast<TransformBuffer*>(
+                mappedResource.pData
+                );
+
+        transform->position[0] = positionX;
+        transform->position[1] = positionY;
+
+        transform->size[0] = width;
+        transform->size[1] = height;
+
+        transform->rotation = rotation;
+        transform->aspectRatio = aspectRatio;
+
+        transform->padding[0] = 0.0f;
+        transform->padding[1] = 0.0f;
+
+        m_context->Unmap(
+            m_constantBuffer.Get(),
+            0
+        );
+
         const unsigned int stride =
             sizeof(Vertex);
 
@@ -269,6 +356,9 @@ namespace Echo
 
         ID3D11Buffer* vertexBuffer =
             m_vertexBuffer.Get();
+
+        ID3D11Buffer* constantBuffer =
+            m_constantBuffer.Get();
 
         m_context->IASetInputLayout(
             m_inputLayout.Get()
@@ -296,6 +386,12 @@ namespace Echo
             m_vertexShader.Get(),
             nullptr,
             0
+        );
+
+        m_context->VSSetConstantBuffers(
+            0,
+            1,
+            &constantBuffer
         );
 
         m_context->PSSetShader(

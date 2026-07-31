@@ -58,6 +58,10 @@ namespace Echo
                     resizedWidth,
                     resizedHeight
                 );
+
+                m_aspectRatio =
+                    static_cast<float>(resizedWidth) /
+                    static_cast<float>(resizedHeight);
             }
 
             // Limit unusually large time jumps.
@@ -85,7 +89,14 @@ namespace Echo
                 0.08f
             );
 
-            m_quadRenderer.Draw();
+            m_quadRenderer.Draw(
+                0.0f,           // Position X.
+                0.0f,           // Position Y.
+                0.8f,           // Width.
+                0.8f,           // Height.
+                m_quadRotation,
+                m_aspectRatio
+            );
 
             m_graphics.EndFrame();
 
@@ -108,10 +119,8 @@ namespace Echo
 
     void Application::Update(double deltaTime)
     {
-        // Camera, visual effects and interface
-        // will be updated here.
-
-        (void)deltaTime;
+        m_quadRotation +=
+            static_cast<float>(deltaTime);
     }
 
     void Application::UpdateStatistics(double deltaTime)

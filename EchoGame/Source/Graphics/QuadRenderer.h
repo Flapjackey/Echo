@@ -21,7 +21,14 @@ namespace Echo
             const QuadRenderer&
             ) = delete;
 
-        void Draw() noexcept;
+        void Draw(
+            float positionX,
+            float positionY,
+            float width,
+            float height,
+            float rotation,
+            float aspectRatio
+        );
 
     private:
         ID3D11DeviceContext* m_context =
@@ -41,5 +48,8 @@ namespace Echo
 
         Microsoft::WRL::ComPtr<ID3D11InputLayout>
             m_inputLayout;
+
+        Microsoft::WRL::ComPtr<ID3D11Buffer>
+            m_constantBuffer;
     };
 }
