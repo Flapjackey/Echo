@@ -9,6 +9,11 @@ namespace Echo
     public:
         Player() = default;
 
+        Player(
+            float positionX,
+            float positionY
+        ) noexcept;
+
         void Update(
             const PlayerCommand& command,
             double deltaTime

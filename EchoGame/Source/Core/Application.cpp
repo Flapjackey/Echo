@@ -88,8 +88,9 @@ namespace Echo
             if (m_applicationState ==
                 ApplicationState::LocalGame)
             {
-                const PlayerCommand playerCommand =
-                    BuildLocalPlayerCommand();
+                const GameSession::PlayerCommands
+                    playerCommands =
+                    BuildLocalPlayerCommands();
 
                 accumulatedTime +=
                     frameTime;
@@ -98,7 +99,7 @@ namespace Echo
                     fixedDeltaTime)
                 {
                     FixedUpdate(
-                        playerCommand,
+                        playerCommands,
                         fixedDeltaTime
                     );
 
@@ -218,12 +219,13 @@ namespace Echo
     }
 
     void Application::FixedUpdate(
-        const PlayerCommand& playerCommand,
+        const GameSession::PlayerCommands&
+        playerCommands,
         double deltaTime
     )
     {
         m_gameSession.Update(
-            playerCommand,
+            playerCommands,
             deltaTime
         );
     }
@@ -467,17 +469,34 @@ namespace Echo
 
     void Application::RenderGameplay()
     {
-        const Player& player =
-            m_gameSession.GetPlayer();
+        const Level& level =
+            m_gameSession.GetLevel();
 
-        m_quadRenderer.Draw(
-            player.GetPositionX(),
-            player.GetPositionY(),
-            player.GetWidth(),
-            player.GetHeight(),
-            player.GetRotation(),
-            m_aspectRatio
-        );
+        for (const LevelBlock& block :
+            level.GetBlocks())
+        {
+            m_quadRenderer.Draw(
+                block.positionX,
+                block.positionY,
+                block.width,
+                block.height,
+                block.rotation,
+                m_aspectRatio
+            );
+        }
+
+        for (const Player& player :
+            m_gameSession.GetPlayers())
+        {
+            m_quadRenderer.Draw(
+                player.GetPositionX(),
+                player.GetPositionY(),
+                player.GetWidth(),
+                player.GetHeight(),
+                player.GetRotation(),
+                m_aspectRatio
+            );
+        }
 
         for (const Projectile& projectile :
             m_gameSession.GetProjectiles())
@@ -510,8 +529,11 @@ namespace Echo
             return;
         }
 
-        const Player& player =
-            m_gameSession.GetPlayer();
+        const Player& playerOne =
+            m_gameSession.GetPlayer(0);
+
+        const Player& playerTwo =
+            m_gameSession.GetPlayer(1);
 
         std::wostringstream debugText;
 
@@ -523,11 +545,15 @@ namespace Echo
             << L" | Frame: "
             << m_frameTimeMilliseconds
             << L" ms"
-            << L" | Player: "
+            << L" | P1: "
             << std::setprecision(2)
-            << player.GetPositionX()
+            << playerOne.GetPositionX()
             << L", "
-            << player.GetPositionY()
+            << playerOne.GetPositionY()
+            << L" | P2: "
+            << playerTwo.GetPositionX()
+            << L", "
+            << playerTwo.GetPositionY()
             << L" | Projectiles: "
             << m_gameSession
             .GetProjectiles()
@@ -685,49 +711,57 @@ namespace Echo
         }
     }
 
-    PlayerCommand
-        Application::BuildLocalPlayerCommand()
+    GameSession::PlayerCommands
+        Application::BuildLocalPlayerCommands()
         const noexcept
     {
-        PlayerCommand command{};
+        GameSession::PlayerCommands
+            playerCommands{};
+
+        PlayerCommand& playerOneCommand =
+            playerCommands[0];
 
         if (m_keyboard.IsDown(Key::A))
         {
-            command.movementX -= 1.0f;
+            playerOneCommand.movementX -=
+                1.0f;
         }
 
         if (m_keyboard.IsDown(Key::D))
         {
-            command.movementX += 1.0f;
+            playerOneCommand.movementX +=
+                1.0f;
         }
 
         if (m_keyboard.IsDown(Key::W))
         {
-            command.movementY += 1.0f;
+            playerOneCommand.movementY +=
+                1.0f;
         }
 
         if (m_keyboard.IsDown(Key::S))
         {
-            command.movementY -= 1.0f;
+            playerOneCommand.movementY -=
+                1.0f;
         }
 
-        const Player& player =
-            m_gameSession.GetPlayer();
+        const Player& playerOne =
+            m_gameSession.GetPlayer(0);
 
         // Preserve the current aim direction when the
         // cursor is outside the client area.
-        command.aimX =
-            player.GetForwardX();
+        playerOneCommand.aimX =
+            playerOne.GetForwardX();
 
-        command.aimY =
-            player.GetForwardY();
+        playerOneCommand.aimY =
+            playerOne.GetForwardY();
 
         if (!m_mouse.IsInsideWindow())
         {
-            return command;
+            return playerCommands;
         }
 
-        command.fire =
+        playerOneCommand.fire =
             m_mouse.IsLeftButtonDown();
 
         const float clientWidth =
@@ -743,11 +777,9 @@ namespace Echo
         if (clientWidth <= 0.0f ||
             clientHeight <= 0.0f)
         {
-            return command;
+            return playerCommands;
         }
 
-        // Convert pixel coordinates to normalized
-        // device coordinates.
         const float normalizedMouseX =
             2.0f *
             static_cast<float>(
@@ -756,8 +788,6 @@ namespace Echo
             clientWidth -
             1.0f;
 
-        // Windows Y grows downward.
-        // World Y grows upward.
         const float normalizedMouseY =
             1.0f -
             2.0f *
@@ -775,11 +805,11 @@ namespace Echo
 
         const float directionX =
             mouseWorldX -
-            player.GetPositionX();
+            playerOne.GetPositionX();
 
         const float directionY =
             mouseWorldY -
-            player.GetPositionY();
+            playerOne.GetPositionY();
 
         const float directionLengthSquared =
             directionX * directionX +
@@ -791,7 +821,7 @@ namespace Echo
         if (directionLengthSquared <=
             DirectionEpsilon)
         {
-            return command;
+            return playerCommands;
         }
 
         const float inverseLength =
@@ -800,15 +830,15 @@ namespace Echo
                 directionLengthSquared
             );
 
-        command.aimX =
+        playerOneCommand.aimX =
             directionX *
             inverseLength;
 
-        command.aimY =
+        playerOneCommand.aimY =
             directionY *
             inverseLength;
 
-        return command;
+        return playerCommands;
     }
 
     void Application::UpdateStatistics(

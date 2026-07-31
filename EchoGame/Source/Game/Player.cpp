@@ -10,6 +10,15 @@ namespace
 
 namespace Echo
 {
+    Player::Player(
+        float positionX,
+        float positionY
+    ) noexcept
+        : m_positionX(positionX),
+        m_positionY(positionY)
+    {
+    }
+
     void Player::Update(
         const PlayerCommand& command,
         double deltaTime
