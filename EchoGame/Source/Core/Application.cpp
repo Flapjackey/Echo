@@ -25,6 +25,9 @@ namespace Echo
             m_window.GetHandle(),
             ClientWidth,
             ClientHeight
+        ),
+        m_triangleRenderer(
+            m_graphics
         )
     {
     }
@@ -81,6 +84,8 @@ namespace Echo
                 0.04f,
                 0.08f
             );
+
+            m_triangleRenderer.Draw();
 
             m_graphics.EndFrame();
 
