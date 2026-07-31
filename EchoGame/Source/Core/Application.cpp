@@ -1,10 +1,12 @@
 #include "Core/Application.h"
 
+#include "UI/PauseMenu.h"
+#include "UI/SettingsMenu.h"
+
 #include <algorithm>
 #include <cmath>
 #include <iomanip>
 #include <sstream>
-#include "UI/PauseMenu.h"
 
 namespace
 {
@@ -13,106 +15,6 @@ namespace
 
     constexpr unsigned int ClientHeight =
         720;
-
-    constexpr const wchar_t*
-        MainMenuLabels[]
-    {
-        L"Local Game",
-        L"Host Game",
-        L"Join Game",
-        L"Settings",
-        L"Exit"
-    };
-
-    constexpr float MainMenuFirstItemY =
-        0.56f;
-
-    constexpr float MainMenuItemSpacing =
-        0.28f;
-
-    constexpr float MainMenuNormalWidth =
-        0.90f;
-
-    constexpr float MainMenuSelectedWidth =
-        1.25f;
-
-    constexpr float MainMenuNormalHeight =
-        0.12f;
-
-    constexpr float MainMenuSelectedHeight =
-        0.18f;
-
-    constexpr float MainMenuHitboxWidth =
-        1.25f;
-
-    constexpr float MainMenuHitboxHeight =
-        0.22f;
-
-    constexpr std::size_t
-        MainMenuLabelCount =
-        sizeof(MainMenuLabels) /
-        sizeof(MainMenuLabels[0]);
-
-    static_assert(
-        MainMenuLabelCount ==
-        static_cast<std::size_t>(
-            Echo::MainMenuItem::Count
-            )
-        );
-    constexpr const wchar_t*
-        SettingsMenuLabels[]
-    {
-        L"Fullscreen",
-        L"VSync",
-        L"Debug Overlay",
-        L"Back"
-    };
-
-    constexpr float SettingsMenuFirstItemY =
-        0.38f;
-
-    constexpr float SettingsMenuItemSpacing =
-        0.30f;
-
-    constexpr float SettingsMenuNormalWidth =
-        1.15f;
-
-    constexpr float SettingsMenuSelectedWidth =
-        1.50f;
-
-    constexpr float SettingsMenuNormalHeight =
-        0.12f;
-
-    constexpr float SettingsMenuSelectedHeight =
-        0.18f;
-
-    constexpr float SettingsMenuHitboxWidth =
-        1.50f;
-
-    constexpr float SettingsMenuHitboxHeight =
-        0.23f;
-
-    constexpr std::size_t
-        SettingsMenuLabelCount =
-        sizeof(SettingsMenuLabels) /
-        sizeof(SettingsMenuLabels[0]);
-
-    static_assert(
-        SettingsMenuLabelCount ==
-        static_cast<std::size_t>(
-            Echo::SettingsMenuItem::Count
-            )
-        );
-
-    constexpr const wchar_t* ToOnOff(
-        bool enabled
-    ) noexcept
-    {
-        return enabled
-            ? L"ON"
-            : L"OFF";
-    }
-
 }
 
 namespace Echo
@@ -221,7 +123,12 @@ namespace Echo
                     0.06f
                 );
 
-                RenderMainMenu();
+                m_mainMenu.Render(
+                    m_quadRenderer,
+                    m_textRenderer,
+                    m_window,
+                    m_aspectRatio
+                );
 
                 break;
             }
@@ -281,7 +188,13 @@ namespace Echo
                     0.06f
                 );
 
-                RenderSettings();
+                m_settingsMenu.Render(
+                    m_quadRenderer,
+                    m_textRenderer,
+                    m_window,
+                    m_settings,
+                    m_aspectRatio
+                );
 
                 break;
             }
@@ -321,7 +234,69 @@ namespace Echo
         {
         case ApplicationState::MainMenu:
         {
-            HandleMainMenuInput();
+            const MainMenuAction action =
+                m_mainMenu.Update(
+                    m_keyboard,
+                    m_mouse,
+                    m_window,
+                    m_aspectRatio
+                );
+
+            switch (action)
+            {
+            case MainMenuAction::None:
+            {
+                break;
+            }
+
+            case MainMenuAction::StartLocalGame:
+            {
+                m_gameSession.Reset();
+
+                EnterState(
+                    ApplicationState::LocalGame
+                );
+
+                break;
+            }
+
+            case MainMenuAction::HostGame:
+            {
+                EnterState(
+                    ApplicationState::HostGame
+                );
+
+                break;
+            }
+
+            case MainMenuAction::JoinGame:
+            {
+                EnterState(
+                    ApplicationState::JoinGame
+                );
+
+                break;
+            }
+
+            case MainMenuAction::OpenSettings:
+            {
+                m_settingsReturnState =
+                    ApplicationState::MainMenu;
+
+                EnterState(
+                    ApplicationState::Settings
+                );
+
+                break;
+            }
+
+            case MainMenuAction::Exit:
+            {
+                m_exitRequested = true;
+                break;
+            }
+            }
+
             break;
         }
 
@@ -379,6 +354,8 @@ namespace Echo
 
             case PauseMenuAction::ReturnToMainMenu:
             {
+                m_mainMenu.Reset();
+
                 EnterState(
                     ApplicationState::MainMenu
                 );
@@ -402,6 +379,8 @@ namespace Echo
             if (m_keyboard.WasPressed(
                 Key::Escape))
             {
+                m_mainMenu.Reset();
+
                 EnterState(
                     ApplicationState::MainMenu
                 );
@@ -412,491 +391,62 @@ namespace Echo
 
         case ApplicationState::Settings:
         {
-            HandleSettingsInput();
-            break;
-        }
-        }
-    }
-
-    bool Application::TryGetHoveredMainMenuItem(
-        MainMenuItem& menuItem
-    ) const noexcept
-    {
-        if (!m_mouse.IsInsideWindow())
-        {
-            return false;
-        }
-
-        const float clientWidth =
-            static_cast<float>(
-                m_window.GetClientWidth()
+            const SettingsMenuAction action =
+                m_settingsMenu.Update(
+                    m_keyboard,
+                    m_mouse,
+                    m_window,
+                    m_aspectRatio
                 );
 
-        const float clientHeight =
-            static_cast<float>(
-                m_window.GetClientHeight()
-                );
-
-        if (clientWidth <= 0.0f ||
-            clientHeight <= 0.0f)
-        {
-            return false;
-        }
-
-        const float normalizedMouseX =
-            2.0f *
-            static_cast<float>(
-                m_mouse.GetX()
-                ) /
-            clientWidth -
-            1.0f;
-
-        const float normalizedMouseY =
-            1.0f -
-            2.0f *
-            static_cast<float>(
-                m_mouse.GetY()
-                ) /
-            clientHeight;
-
-        // Convert screen X to the world coordinate
-        // system used by QuadRenderer.
-        const float mouseWorldX =
-            normalizedMouseX *
-            m_aspectRatio;
-
-        const float mouseWorldY =
-            normalizedMouseY;
-
-        constexpr std::size_t itemCount =
-            static_cast<std::size_t>(
-                MainMenuItem::Count
-                );
-
-        const float halfHitboxWidth =
-            MainMenuHitboxWidth *
-            0.5f;
-
-        const float halfHitboxHeight =
-            MainMenuHitboxHeight *
-            0.5f;
-
-        for (std::size_t index = 0;
-            index < itemCount;
-            ++index)
-        {
-            const float itemPositionY =
-                MainMenuFirstItemY -
-                static_cast<float>(index) *
-                MainMenuItemSpacing;
-
-            const bool insideX =
-                mouseWorldX >=
-                -halfHitboxWidth &&
-                mouseWorldX <=
-                halfHitboxWidth;
-
-            const bool insideY =
-                mouseWorldY >=
-                itemPositionY -
-                halfHitboxHeight &&
-                mouseWorldY <=
-                itemPositionY +
-                halfHitboxHeight;
-
-            if (insideX && insideY)
+            switch (action)
             {
-                menuItem =
-                    static_cast<MainMenuItem>(
-                        index
-                        );
-
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    bool Application::TryGetHoveredSettingsMenuItem(
-        SettingsMenuItem& menuItem
-    ) const noexcept
-    {
-        if (!m_mouse.IsInsideWindow())
-        {
-            return false;
-        }
-
-        const float clientWidth =
-            static_cast<float>(
-                m_window.GetClientWidth()
-                );
-
-        const float clientHeight =
-            static_cast<float>(
-                m_window.GetClientHeight()
-                );
-
-        if (clientWidth <= 0.0f ||
-            clientHeight <= 0.0f)
-        {
-            return false;
-        }
-
-        const float normalizedMouseX =
-            2.0f *
-            static_cast<float>(
-                m_mouse.GetX()
-                ) /
-            clientWidth -
-            1.0f;
-
-        const float normalizedMouseY =
-            1.0f -
-            2.0f *
-            static_cast<float>(
-                m_mouse.GetY()
-                ) /
-            clientHeight;
-
-        const float mouseWorldX =
-            normalizedMouseX *
-            m_aspectRatio;
-
-        const float mouseWorldY =
-            normalizedMouseY;
-
-        constexpr std::size_t itemCount =
-            static_cast<std::size_t>(
-                SettingsMenuItem::Count
-                );
-
-        const float halfHitboxWidth =
-            SettingsMenuHitboxWidth *
-            0.5f;
-
-        const float halfHitboxHeight =
-            SettingsMenuHitboxHeight *
-            0.5f;
-
-        for (std::size_t index = 0;
-            index < itemCount;
-            ++index)
-        {
-            const float itemPositionY =
-                SettingsMenuFirstItemY -
-                static_cast<float>(index) *
-                SettingsMenuItemSpacing;
-
-            const bool insideX =
-                mouseWorldX >=
-                -halfHitboxWidth &&
-                mouseWorldX <=
-                halfHitboxWidth;
-
-            const bool insideY =
-                mouseWorldY >=
-                itemPositionY -
-                halfHitboxHeight &&
-                mouseWorldY <=
-                itemPositionY +
-                halfHitboxHeight;
-
-            if (insideX && insideY)
+            case SettingsMenuAction::None:
             {
-                menuItem =
-                    static_cast<SettingsMenuItem>(
-                        index
-                        );
-
-                return true;
+                break;
             }
-        }
 
-        return false;
-    }
-
-    void Application::HandleMainMenuInput()
-    {
-        constexpr std::size_t itemCount =
-            static_cast<std::size_t>(
-                MainMenuItem::Count
-                );
-
-        std::size_t selectedIndex =
-            static_cast<std::size_t>(
-                m_selectedMenuItem
-                );
-
-        bool selectionChanged = false;
-
-        if (m_keyboard.WasPressed(Key::Up) ||
-            m_keyboard.WasPressed(Key::W))
-        {
-            selectedIndex =
-                (selectedIndex +
-                    itemCount -
-                    1) %
-                itemCount;
-
-            selectionChanged = true;
-        }
-
-        if (m_keyboard.WasPressed(Key::Down) ||
-            m_keyboard.WasPressed(Key::S))
-        {
-            selectedIndex =
-                (selectedIndex + 1) %
-                itemCount;
-
-            selectionChanged = true;
-        }
-
-        if (selectionChanged)
-        {
-            m_selectedMenuItem =
-                static_cast<MainMenuItem>(
-                    selectedIndex
-                    );
-
-            UpdateMenuTitle();
-        }
-
-        MainMenuItem hoveredItem{};
-
-        // Change selection only when the mouse actually
-        // moves. A stationary cursor will not block
-        // keyboard navigation.
-        if (m_mouse.WasMoved() &&
-            TryGetHoveredMainMenuItem(
-                hoveredItem
-            ))
-        {
-            if (hoveredItem !=
-                m_selectedMenuItem)
+            case SettingsMenuAction::ToggleFullscreen:
             {
-                m_selectedMenuItem =
-                    hoveredItem;
+                const bool requestedFullscreen =
+                    !m_settings.fullscreen;
 
-                UpdateMenuTitle();
+                m_window.SetFullscreen(
+                    requestedFullscreen
+                );
+
+                m_settings.fullscreen =
+                    m_window.IsFullscreen();
+
+                break;
             }
-        }
 
-        bool activateSelectedItem =
-            m_keyboard.WasPressed(
-                Key::Enter
-            );
+            case SettingsMenuAction::ToggleVerticalSync:
+            {
+                m_settings.verticalSync =
+                    !m_settings.verticalSync;
 
-        if (m_mouse.WasLeftButtonPressed() &&
-            TryGetHoveredMainMenuItem(
-                hoveredItem
-            ))
-        {
-            m_selectedMenuItem =
-                hoveredItem;
+                break;
+            }
 
-            UpdateMenuTitle();
+            case SettingsMenuAction::ToggleDebugOverlay:
+            {
+                m_settings.debugOverlay =
+                    !m_settings.debugOverlay;
 
-            activateSelectedItem =
-                true;
-        }
+                break;
+            }
 
-        if (!activateSelectedItem)
-        {
-            return;
-        }
-
-        switch (m_selectedMenuItem)
-        {
-        case MainMenuItem::LocalGame:
-        {
-            m_gameSession.Reset();
-
-            EnterState(
-                ApplicationState::LocalGame
-            );
-
-            break;
-        }
-
-        case MainMenuItem::HostGame:
-        {
-            EnterState(
-                ApplicationState::HostGame
-            );
-
-            break;
-        }
-
-        case MainMenuItem::JoinGame:
-        {
-            EnterState(
-                ApplicationState::JoinGame
-            );
-
-            break;
-        }
-
-        case MainMenuItem::Settings:
-        {
-            m_settingsReturnState =
-                ApplicationState::MainMenu;
-
-            EnterState(
-                ApplicationState::Settings
-            );
-
-            break;
-        }
-
-        case MainMenuItem::Exit:
-        {
-            m_exitRequested = true;
-            break;
-        }
-
-        case MainMenuItem::Count:
-        {
-            break;
-        }
-        }
-    }
-
-    void Application::HandleSettingsInput()
-    {
-        if (m_keyboard.WasPressed(
-            Key::Escape))
-        {
-            EnterState(
-                m_settingsReturnState
-            );
-
-            return;
-        }
-
-        constexpr std::size_t itemCount =
-            static_cast<std::size_t>(
-                SettingsMenuItem::Count
+            case SettingsMenuAction::Back:
+            {
+                EnterState(
+                    m_settingsReturnState
                 );
 
-        std::size_t selectedIndex =
-            static_cast<std::size_t>(
-                m_selectedSettingsItem
-                );
+                break;
+            }
+            }
 
-        bool selectionChanged = false;
-
-        if (m_keyboard.WasPressed(Key::Up) ||
-            m_keyboard.WasPressed(Key::W))
-        {
-            selectedIndex =
-                (selectedIndex +
-                    itemCount -
-                    1) %
-                itemCount;
-
-            selectionChanged = true;
-        }
-
-        if (m_keyboard.WasPressed(Key::Down) ||
-            m_keyboard.WasPressed(Key::S))
-        {
-            selectedIndex =
-                (selectedIndex + 1) %
-                itemCount;
-
-            selectionChanged = true;
-        }
-
-        if (selectionChanged)
-        {
-            m_selectedSettingsItem =
-                static_cast<SettingsMenuItem>(
-                    selectedIndex
-                    );
-        }
-
-        SettingsMenuItem hoveredItem{};
-
-        if (m_mouse.WasMoved() &&
-            TryGetHoveredSettingsMenuItem(
-                hoveredItem
-            ))
-        {
-            m_selectedSettingsItem =
-                hoveredItem;
-        }
-
-        bool activateSelectedItem =
-            m_keyboard.WasPressed(
-                Key::Enter
-            );
-
-        if (m_mouse.WasLeftButtonPressed() &&
-            TryGetHoveredSettingsMenuItem(
-                hoveredItem
-            ))
-        {
-            m_selectedSettingsItem =
-                hoveredItem;
-
-            activateSelectedItem = true;
-        }
-
-        if (activateSelectedItem)
-        {
-            ActivateSelectedSettingsItem();
-        }
-    }
-
-    void Application::ActivateSelectedSettingsItem()
-    {
-        switch (m_selectedSettingsItem)
-        {
-        case SettingsMenuItem::Fullscreen:
-        {
-            const bool requestedFullscreen =
-                !m_settings.fullscreen;
-
-            m_window.SetFullscreen(
-                requestedFullscreen
-            );
-
-            // Use the actual window state in case
-            // the Win32 operation failed.
-            m_settings.fullscreen =
-                m_window.IsFullscreen();
-
-            break;
-        }
-
-        case SettingsMenuItem::VerticalSync:
-        {
-            m_settings.verticalSync =
-                !m_settings.verticalSync;
-
-            break;
-        }
-
-        case SettingsMenuItem::DebugOverlay:
-        {
-            m_settings.debugOverlay =
-                !m_settings.debugOverlay;
-
-            break;
-        }
-
-        case SettingsMenuItem::Back:
-        {
-            EnterState(
-                m_settingsReturnState
-            );
-
-            break;
-        }
-
-        case SettingsMenuItem::Count:
-        {
             break;
         }
         }
@@ -999,314 +549,6 @@ namespace Echo
         m_textRenderer.End();
     }
 
-    void Application::RenderMainMenu()
-    {
-        constexpr std::size_t itemCount =
-            static_cast<std::size_t>(
-                MainMenuItem::Count
-                );
-
-        const float clientWidth =
-            static_cast<float>(
-                m_window.GetClientWidth()
-                );
-
-        const float clientHeight =
-            static_cast<float>(
-                m_window.GetClientHeight()
-                );
-
-        if (clientWidth <= 0.0f ||
-            clientHeight <= 0.0f)
-        {
-            return;
-        }
-
-        for (std::size_t index = 0;
-            index < itemCount;
-            ++index)
-        {
-            const bool isSelected =
-                index ==
-                static_cast<std::size_t>(
-                    m_selectedMenuItem
-                    );
-
-            const float positionY =
-                MainMenuFirstItemY -
-                static_cast<float>(index) *
-                MainMenuItemSpacing;
-
-            const float width =
-                isSelected
-                ? MainMenuSelectedWidth
-                : MainMenuNormalWidth;
-
-            const float height =
-                isSelected
-                ? MainMenuSelectedHeight
-                : MainMenuNormalHeight;
-
-            m_quadRenderer.Draw(
-                0.0f,
-                positionY,
-                width,
-                height,
-                0.0f,
-                m_aspectRatio
-            );
-        }
-
-        // Direct2D text is drawn after the Direct3D menu bars.
-        m_textRenderer.Begin();
-
-        m_textRenderer.Draw(
-            L"ECHO",
-            D2D1_RECT_F{
-                0.0f,
-                20.0f,
-                clientWidth,
-                115.0f
-            },
-            TextStyle::Title
-        );
-
-        for (std::size_t index = 0;
-            index < itemCount;
-            ++index)
-        {
-            const bool isSelected =
-                index ==
-                static_cast<std::size_t>(
-                    m_selectedMenuItem
-                    );
-
-            const float positionY =
-                MainMenuFirstItemY -
-                static_cast<float>(index) *
-                MainMenuItemSpacing;
-
-            // Convert world Y to pixel Y.
-            const float centerY =
-                (1.0f - positionY) *
-                0.5f *
-                clientHeight;
-
-            m_textRenderer.Draw(
-                MainMenuLabels[index],
-                D2D1_RECT_F{
-                    0.0f,
-                    centerY - 30.0f,
-                    clientWidth,
-                    centerY + 30.0f
-                },
-                TextStyle::MenuItem,
-                isSelected
-            );
-        }
-
-        m_textRenderer.Draw(
-            L"W/S or Up/Down - Select | Enter - Confirm",
-            D2D1_RECT_F{
-                0.0f,
-                clientHeight - 55.0f,
-                clientWidth,
-                clientHeight - 10.0f
-            },
-            TextStyle::Hint
-        );
-
-        m_textRenderer.End();
-    }
-
-    void Application::RenderSettings()
-    {
-        constexpr std::size_t itemCount =
-            static_cast<std::size_t>(
-                SettingsMenuItem::Count
-                );
-
-        const float clientWidth =
-            static_cast<float>(
-                m_window.GetClientWidth()
-                );
-
-        const float clientHeight =
-            static_cast<float>(
-                m_window.GetClientHeight()
-                );
-
-        if (clientWidth <= 0.0f ||
-            clientHeight <= 0.0f)
-        {
-            return;
-        }
-
-        for (std::size_t index = 0;
-            index < itemCount;
-            ++index)
-        {
-            const bool isSelected =
-                index ==
-                static_cast<std::size_t>(
-                    m_selectedSettingsItem
-                    );
-
-            const float positionY =
-                SettingsMenuFirstItemY -
-                static_cast<float>(index) *
-                SettingsMenuItemSpacing;
-
-            const float width =
-                isSelected
-                ? SettingsMenuSelectedWidth
-                : SettingsMenuNormalWidth;
-
-            const float height =
-                isSelected
-                ? SettingsMenuSelectedHeight
-                : SettingsMenuNormalHeight;
-
-            m_quadRenderer.Draw(
-                0.0f,
-                positionY,
-                width,
-                height,
-                0.0f,
-                m_aspectRatio
-            );
-        }
-
-        m_textRenderer.Begin();
-
-        m_textRenderer.Draw(
-            L"SETTINGS",
-            D2D1_RECT_F{
-                0.0f,
-                20.0f,
-                clientWidth,
-                115.0f
-            },
-            TextStyle::Title
-        );
-
-        for (std::size_t index = 0;
-            index < itemCount;
-            ++index)
-        {
-            const SettingsMenuItem item =
-                static_cast<SettingsMenuItem>(
-                    index
-                    );
-
-            const bool isSelected =
-                item ==
-                m_selectedSettingsItem;
-
-            const float positionY =
-                SettingsMenuFirstItemY -
-                static_cast<float>(index) *
-                SettingsMenuItemSpacing;
-
-            const float centerY =
-                (1.0f - positionY) *
-                0.5f *
-                clientHeight;
-
-            if (item == SettingsMenuItem::Back)
-            {
-                m_textRenderer.Draw(
-                    SettingsMenuLabels[index],
-                    D2D1_RECT_F{
-                        0.0f,
-                        centerY - 30.0f,
-                        clientWidth,
-                        centerY + 30.0f
-                    },
-                    TextStyle::MenuItem,
-                    isSelected
-                );
-
-                continue;
-            }
-
-            const wchar_t* value = L"OFF";
-
-            switch (item)
-            {
-            case SettingsMenuItem::Fullscreen:
-            {
-                value = ToOnOff(
-                    m_settings.fullscreen
-                );
-
-                break;
-            }
-
-            case SettingsMenuItem::VerticalSync:
-            {
-                value = ToOnOff(
-                    m_settings.verticalSync
-                );
-
-                break;
-            }
-
-            case SettingsMenuItem::DebugOverlay:
-            {
-                value = ToOnOff(
-                    m_settings.debugOverlay
-                );
-
-                break;
-            }
-
-            case SettingsMenuItem::Back:
-            case SettingsMenuItem::Count:
-            {
-                break;
-            }
-            }
-
-            m_textRenderer.Draw(
-                SettingsMenuLabels[index],
-                D2D1_RECT_F{
-                    clientWidth * 0.12f,
-                    centerY - 30.0f,
-                    clientWidth * 0.63f,
-                    centerY + 30.0f
-                },
-                TextStyle::MenuItem,
-                isSelected
-            );
-
-            m_textRenderer.Draw(
-                value,
-                D2D1_RECT_F{
-                    clientWidth * 0.63f,
-                    centerY - 30.0f,
-                    clientWidth * 0.88f,
-                    centerY + 30.0f
-                },
-                TextStyle::MenuItem,
-                isSelected
-            );
-        }
-
-        m_textRenderer.Draw(
-            L"W/S, Arrows or Mouse - Select | Enter or Click - Change | Escape - Back",
-            D2D1_RECT_F{
-                0.0f,
-                clientHeight - 55.0f,
-                clientWidth,
-                clientHeight - 10.0f
-            },
-            TextStyle::Hint
-        );
-
-        m_textRenderer.End();
-    }
-
     void Application::RenderPlaceholder()
     {
         m_quadRenderer.Draw(
@@ -1389,51 +631,9 @@ namespace Echo
         {
         case ApplicationState::MainMenu:
         {
-            std::wstring title =
-                L"Echo | Main Menu | Selected: ";
-
-            switch (m_selectedMenuItem)
-            {
-            case MainMenuItem::LocalGame:
-            {
-                title += L"Local Game";
-                break;
-            }
-
-            case MainMenuItem::HostGame:
-            {
-                title += L"Host Game";
-                break;
-            }
-
-            case MainMenuItem::JoinGame:
-            {
-                title += L"Join Game";
-                break;
-            }
-
-            case MainMenuItem::Settings:
-            {
-                title += L"Settings";
-                break;
-            }
-
-            case MainMenuItem::Exit:
-            {
-                title += L"Exit";
-                break;
-            }
-
-            case MainMenuItem::Count:
-            {
-                break;
-            }
-            }
-
-            title +=
-                L" | W/S or Up/Down + Enter";
-
-            m_window.SetTitle(title);
+            m_window.SetTitle(
+                L"Echo | Main Menu"
+            );
 
             break;
         }
