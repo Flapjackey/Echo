@@ -1,7 +1,8 @@
-#include "Graphics/TriangleRenderer.h"
+#include "Graphics/QuadRenderer.h"
 
 #include <d3dcompiler.h>
 
+#include <cstdint>
 #include <stdexcept>
 #include <string>
 
@@ -85,7 +86,7 @@ namespace
 
 namespace Echo
 {
-    TriangleRenderer::TriangleRenderer(
+    QuadRenderer::QuadRenderer(
         GraphicsDevice& graphics
     )
     {
@@ -163,9 +164,7 @@ namespace Echo
         ThrowIfFailed(
             device->CreateInputLayout(
                 inputElements,
-                static_cast<unsigned int>(
-                    std::size(inputElements)
-                    ),
+                2,
                 vertexShaderCode->GetBufferPointer(),
                 vertexShaderCode->GetBufferSize(),
                 m_inputLayout.GetAddressOf()
@@ -175,47 +174,93 @@ namespace Echo
 
         const Vertex vertices[]
         {
+            // Top-left.
             {
-                { 0.0f, 0.65f },
+                { -0.5f, 0.5f },
                 { 1.0f, 0.1f, 0.1f }
             },
+
+            // Top-right.
             {
-                { 0.65f, -0.65f },
+                { 0.5f, 0.5f },
                 { 0.1f, 1.0f, 0.1f }
             },
+
+            // Bottom-right.
             {
-                { -0.65f, -0.65f },
+                { 0.5f, -0.5f },
                 { 0.1f, 0.3f, 1.0f }
+            },
+
+            // Bottom-left.
+            {
+                { -0.5f, -0.5f },
+                { 1.0f, 0.1f, 1.0f }
             }
         };
 
-        D3D11_BUFFER_DESC bufferDescription{};
+        D3D11_BUFFER_DESC vertexBufferDescription{};
 
-        bufferDescription.ByteWidth =
-            sizeof(vertices);
+        vertexBufferDescription.ByteWidth =
+            static_cast<unsigned int>(
+                sizeof(vertices)
+                );
 
-        bufferDescription.Usage =
+        vertexBufferDescription.Usage =
             D3D11_USAGE_IMMUTABLE;
 
-        bufferDescription.BindFlags =
+        vertexBufferDescription.BindFlags =
             D3D11_BIND_VERTEX_BUFFER;
 
-        D3D11_SUBRESOURCE_DATA initialData{};
+        D3D11_SUBRESOURCE_DATA vertexInitialData{};
 
-        initialData.pSysMem =
+        vertexInitialData.pSysMem =
             vertices;
 
         ThrowIfFailed(
             device->CreateBuffer(
-                &bufferDescription,
-                &initialData,
+                &vertexBufferDescription,
+                &vertexInitialData,
                 m_vertexBuffer.GetAddressOf()
             ),
-            "Failed to create triangle vertex buffer."
+            "Failed to create quad vertex buffer."
+        );
+
+        const std::uint16_t indices[]
+        {
+            0, 1, 2,
+            0, 2, 3
+        };
+
+        D3D11_BUFFER_DESC indexBufferDescription{};
+
+        indexBufferDescription.ByteWidth =
+            static_cast<unsigned int>(
+                sizeof(indices)
+                );
+
+        indexBufferDescription.Usage =
+            D3D11_USAGE_IMMUTABLE;
+
+        indexBufferDescription.BindFlags =
+            D3D11_BIND_INDEX_BUFFER;
+
+        D3D11_SUBRESOURCE_DATA indexInitialData{};
+
+        indexInitialData.pSysMem =
+            indices;
+
+        ThrowIfFailed(
+            device->CreateBuffer(
+                &indexBufferDescription,
+                &indexInitialData,
+                m_indexBuffer.GetAddressOf()
+            ),
+            "Failed to create quad index buffer."
         );
     }
 
-    void TriangleRenderer::Draw() noexcept
+    void QuadRenderer::Draw() noexcept
     {
         const unsigned int stride =
             sizeof(Vertex);
@@ -237,6 +282,12 @@ namespace Echo
             &offset
         );
 
+        m_context->IASetIndexBuffer(
+            m_indexBuffer.Get(),
+            DXGI_FORMAT_R16_UINT,
+            0
+        );
+
         m_context->IASetPrimitiveTopology(
             D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST
         );
@@ -253,8 +304,9 @@ namespace Echo
             0
         );
 
-        m_context->Draw(
-            3,
+        m_context->DrawIndexed(
+            6,
+            0,
             0
         );
     }

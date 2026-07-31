@@ -6,19 +6,19 @@
 
 namespace Echo
 {
-    class TriangleRenderer final
+    class QuadRenderer final
     {
     public:
-        explicit TriangleRenderer(
+        explicit QuadRenderer(
             GraphicsDevice& graphics
         );
 
-        TriangleRenderer(
-            const TriangleRenderer&
+        QuadRenderer(
+            const QuadRenderer&
         ) = delete;
 
-        TriangleRenderer& operator=(
-            const TriangleRenderer&
+        QuadRenderer& operator=(
+            const QuadRenderer&
             ) = delete;
 
         void Draw() noexcept;
@@ -29,6 +29,9 @@ namespace Echo
 
         Microsoft::WRL::ComPtr<ID3D11Buffer>
             m_vertexBuffer;
+
+        Microsoft::WRL::ComPtr<ID3D11Buffer>
+            m_indexBuffer;
 
         Microsoft::WRL::ComPtr<ID3D11VertexShader>
             m_vertexShader;

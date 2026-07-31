@@ -26,7 +26,7 @@ namespace Echo
             ClientWidth,
             ClientHeight
         ),
-        m_triangleRenderer(
+        m_quadRenderer(
             m_graphics
         )
     {
@@ -85,7 +85,7 @@ namespace Echo
                 0.08f
             );
 
-            m_triangleRenderer.Draw();
+            m_quadRenderer.Draw();
 
             m_graphics.EndFrame();
 

@@ -2,7 +2,7 @@
 
 #include "Core/Clock.h"
 #include "Graphics/GraphicsDevice.h"
-#include "Graphics/TriangleRenderer.h"
+#include "Graphics/QuadRenderer.h"
 #include "Platform/Windows/Window.h"
 
 namespace Echo
@@ -21,7 +21,7 @@ namespace Echo
 
         Window m_window;
         GraphicsDevice m_graphics;
-        TriangleRenderer m_triangleRenderer;
+        QuadRenderer m_quadRenderer;
         Clock m_clock;
 
         double m_statisticsTimer = 0.0;
