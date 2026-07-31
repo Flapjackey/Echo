@@ -1,15 +1,14 @@
 #pragma once
 
 #include "Core/Clock.h"
-#include "Game/Player.h"
-#include "Game/Projectile.h"
+#include "Game/GameSession.h"
+#include "Game/PlayerCommand.h"
 #include "Graphics/GraphicsDevice.h"
 #include "Graphics/QuadRenderer.h"
 #include "Input/Keyboard.h"
 #include "Input/Mouse.h"
 #include "Platform/Windows/Window.h"
-
-#include <vector>
+#include "Core/ApplicationState.h"
 
 namespace Echo
 {
@@ -21,27 +20,53 @@ namespace Echo
         int Run();
 
     private:
-        void FixedUpdate(double deltaTime);
-        void Update(double deltaTime);
-        void UpdateStatistics(double deltaTime);
+        void FixedUpdate(
+            const PlayerCommand& playerCommand,
+            double deltaTime
+        );
 
-        void TryFireProjectile();
+        PlayerCommand
+            BuildLocalPlayerCommand() const noexcept;
+
+        void HandleApplicationInput();
+        void HandleMainMenuInput();
+
+        void EnterState(
+            ApplicationState state
+        );
+
+        void RenderGameplay();
+        void RenderMainMenu();
+        void RenderPlaceholder();
+
+        void UpdateMenuTitle();
+
+        void UpdateStatistics(
+            double deltaTime
+        );
 
         Keyboard m_keyboard;
         Mouse m_mouse;
+
         Window m_window;
+
         GraphicsDevice m_graphics;
         QuadRenderer m_quadRenderer;
-        Player m_player;
 
-        std::vector<Projectile> m_projectiles;
+        GameSession m_gameSession;
 
         Clock m_clock;
 
+        ApplicationState m_applicationState =
+            ApplicationState::MainMenu;
+
+        MainMenuItem m_selectedMenuItem =
+            MainMenuItem::LocalGame;
+
+        bool m_exitRequested = false;
+
         double m_statisticsTimer = 0.0;
         unsigned int m_frameCount = 0;
-
-        float m_fireCooldown = 0.0f;
 
         float m_aspectRatio =
             16.0f / 9.0f;

@@ -129,6 +129,7 @@
   <ItemGroup>
     <ClCompile Include="Source\Core\Application.cpp" />
     <ClCompile Include="Source\Core\Clock.cpp" />
+    <ClCompile Include="Source\Game\GameSession.cpp" />
     <ClCompile Include="Source\Game\Player.cpp" />
     <ClCompile Include="Source\Game\Projectile.cpp" />
     <ClCompile Include="Source\Graphics\GraphicsDevice.cpp" />
@@ -140,8 +141,11 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Source\Core\Application.h" />
+    <ClInclude Include="Source\Core\ApplicationState.h" />
     <ClInclude Include="Source\Core\Clock.h" />
+    <ClInclude Include="Source\Game\GameSession.h" />
     <ClInclude Include="Source\Game\Player.h" />
+    <ClInclude Include="Source\Game\PlayerCommand.h" />
     <ClInclude Include="Source\Game\Projectile.h" />
     <ClInclude Include="Source\Graphics\GraphicsDevice.h" />
     <ClInclude Include="Source\Graphics\QuadRenderer.h" />

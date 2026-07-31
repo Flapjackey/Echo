@@ -11,6 +11,11 @@ namespace Echo
         S,
         D,
 
+        Up,
+        Down,
+        Enter,
+        Escape,
+
         Count
     };
 }
