@@ -99,6 +99,21 @@ namespace Echo
                 m_networkSession.QueuePlayerInput(
                     BuildLocalNetworkInput()
                 );
+
+                NetworkWorldSnapshot receivedSnapshot{};
+
+                if (m_networkSession.
+                    TryConsumeWorldSnapshot(
+                        receivedSnapshot
+                    ))
+                {
+                    ApplyWorldSnapshot(
+                        receivedSnapshot
+                    );
+
+                    m_hasReceivedWorldSnapshot =
+                        true;
+                }
             }
 
             if (m_applicationState ==
@@ -163,6 +178,13 @@ namespace Echo
                 // Prevent inactive states from accumulating
                 // simulation time.
                 accumulatedTime = 0.0;
+            }
+
+            if (isConnectedHost)
+            {
+                m_networkSession.QueueWorldSnapshot(
+                    BuildWorldSnapshot()
+                );
             }
 
             switch (m_applicationState)
@@ -246,13 +268,30 @@ namespace Echo
 
             case ApplicationState::JoinGame:
             {
-                m_graphics.BeginFrame(
-                    0.05f,
-                    0.03f,
-                    0.05f
-                );
+                const bool canRenderRemoteWorld =
+                    m_networkSession.IsConnected() &&
+                    m_hasReceivedWorldSnapshot;
 
-                RenderPlaceholder();
+                if (canRenderRemoteWorld)
+                {
+                    m_graphics.BeginFrame(
+                        0.02f,
+                        0.04f,
+                        0.08f
+                    );
+
+                    RenderGameplay();
+                }
+                else
+                {
+                    m_graphics.BeginFrame(
+                        0.05f,
+                        0.03f,
+                        0.05f
+                    );
+
+                    RenderPlaceholder();
+                }
 
                 break;
             }
@@ -359,6 +398,11 @@ namespace Echo
 
             case MainMenuAction::JoinGame:
             {
+                m_gameSession.Reset();
+
+                m_hasReceivedWorldSnapshot =
+                    false;
+
                 m_networkSession.StartClient(
                     LocalNetworkPort
                 );
@@ -995,6 +1039,71 @@ namespace Echo
             inverseLength;
 
         return command;
+    }
+
+    NetworkWorldSnapshot
+        Application::BuildWorldSnapshot()
+        const noexcept
+    {
+        static_assert(
+            GameSession::PlayerCount ==
+            NetworkPlayerCount,
+            "Game and network player counts differ."
+            );
+
+        NetworkWorldSnapshot snapshot{};
+
+        for (std::size_t playerIndex = 0;
+            playerIndex < NetworkPlayerCount;
+            ++playerIndex)
+        {
+            const Player& player =
+                m_gameSession.GetPlayer(
+                    playerIndex
+                );
+
+            NetworkPlayerState&
+                playerState =
+                snapshot.players[playerIndex];
+
+            playerState.positionX =
+                player.GetPositionX();
+
+            playerState.positionY =
+                player.GetPositionY();
+
+            playerState.rotation =
+                player.GetRotation();
+        }
+
+        return snapshot;
+    }
+
+    void Application::ApplyWorldSnapshot(
+        const NetworkWorldSnapshot& snapshot
+    ) noexcept
+    {
+        static_assert(
+            GameSession::PlayerCount ==
+            NetworkPlayerCount,
+            "Game and network player counts differ."
+            );
+
+        for (std::size_t playerIndex = 0;
+            playerIndex < NetworkPlayerCount;
+            ++playerIndex)
+        {
+            const NetworkPlayerState&
+                playerState =
+                snapshot.players[playerIndex];
+
+            m_gameSession.SetPlayerNetworkState(
+                playerIndex,
+                playerState.positionX,
+                playerState.positionY,
+                playerState.rotation
+            );
+        }
     }
 
     void Application::UpdateStatistics(

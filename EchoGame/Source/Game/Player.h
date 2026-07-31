@@ -19,6 +19,12 @@ namespace Echo
             double deltaTime
         ) noexcept;
 
+        void SetNetworkState(
+            float positionX,
+            float positionY,
+            float rotation
+        ) noexcept;
+
         float GetPositionX() const noexcept;
         float GetPositionY() const noexcept;
 

@@ -103,6 +103,25 @@ namespace Echo
         );
     }
 
+    void GameSession::SetPlayerNetworkState(
+        std::size_t playerIndex,
+        float positionX,
+        float positionY,
+        float rotation
+    ) noexcept
+    {
+        if (playerIndex >= PlayerCount)
+        {
+            return;
+        }
+
+        m_players[playerIndex].SetNetworkState(
+            positionX,
+            positionY,
+            rotation
+        );
+    }
+
     const Player& GameSession::GetPlayer(
         std::size_t playerIndex
     ) const noexcept

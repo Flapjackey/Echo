@@ -32,6 +32,13 @@ namespace Echo
             double deltaTime
         );
 
+        void SetPlayerNetworkState(
+            std::size_t playerIndex,
+            float positionX,
+            float positionY,
+            float rotation
+        ) noexcept;
+
         const Player& GetPlayer(
             std::size_t playerIndex
         ) const noexcept;
