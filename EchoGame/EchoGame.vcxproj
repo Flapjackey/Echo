@@ -143,6 +143,7 @@
     <ClCompile Include="Source\Input\Mouse.cpp" />
     <ClCompile Include="Source\main.cpp" />
     <ClCompile Include="Source\Platform\Windows\Window.cpp" />
+    <ClCompile Include="Source\UI\PauseMenu.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Source\Core\Application.h" />
@@ -161,6 +162,7 @@
     <ClInclude Include="Source\Input\Mouse.h" />
     <ClInclude Include="Source\Platform\Windows\Window.h" />
     <ClInclude Include="Source\Platform\Windows\WindowsCommon.h" />
+    <ClInclude Include="Source\UI\PauseMenu.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

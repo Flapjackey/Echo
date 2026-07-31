@@ -8,6 +8,7 @@ namespace Echo
     {
         MainMenu,
         LocalGame,
+        Paused,
         HostGame,
         JoinGame,
         Settings
