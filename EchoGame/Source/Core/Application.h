@@ -11,7 +11,9 @@
 #include "Input/Keyboard.h"
 #include "Input/Mouse.h"
 #include "Platform/Windows/Window.h"
+#include "UI/MainMenu.h"
 #include "UI/PauseMenu.h"
+#include "UI/SettingsMenu.h"
 
 namespace Echo
 {
@@ -33,26 +35,12 @@ namespace Echo
             const noexcept;
 
         void HandleApplicationInput();
-        void HandleMainMenuInput();
-        void HandleSettingsInput();
-
-        bool TryGetHoveredMainMenuItem(
-            MainMenuItem& menuItem
-        ) const noexcept;
-
-        bool TryGetHoveredSettingsMenuItem(
-            SettingsMenuItem& menuItem
-        ) const noexcept;
-
-        void ActivateSelectedSettingsItem();
 
         void EnterState(
             ApplicationState state
         );
 
         void RenderGameplay();
-        void RenderMainMenu();
-        void RenderSettings();
         void RenderPlaceholder();
         void RenderDebugOverlay();
 
@@ -73,7 +61,9 @@ namespace Echo
 
         GameSession m_gameSession;
 
+        MainMenu m_mainMenu;
         PauseMenu m_pauseMenu;
+        SettingsMenu m_settingsMenu;
 
         Clock m_clock;
 
@@ -84,12 +74,6 @@ namespace Echo
 
         ApplicationState m_settingsReturnState =
             ApplicationState::MainMenu;
-
-        MainMenuItem m_selectedMenuItem =
-            MainMenuItem::LocalGame;
-
-        SettingsMenuItem m_selectedSettingsItem =
-            SettingsMenuItem::Fullscreen;
 
         bool m_exitRequested = false;
 
