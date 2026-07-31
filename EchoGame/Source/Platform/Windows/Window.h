@@ -4,7 +4,12 @@
 #define WIN32_LEAN_AND_MEAN
 #endif
 
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+
 #include <Windows.h>
+#include <string>
 
 namespace Echo
 {
@@ -28,6 +33,8 @@ namespace Echo
         bool ProcessMessages() noexcept;
 
         HWND GetHandle() const noexcept;
+
+        void SetTitle(const std::wstring& title) noexcept;
 
     private:
         static LRESULT CALLBACK WindowProcedure(

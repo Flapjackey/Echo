@@ -138,6 +138,19 @@ namespace Echo
         return m_handle;
     }
 
+    void Window::SetTitle(
+        const std::wstring& title
+    ) noexcept
+    {
+        if (m_handle != nullptr)
+        {
+            SetWindowTextW(
+                m_handle,
+                title.c_str()
+            );
+        }
+    }
+
     LRESULT CALLBACK Window::WindowProcedure(
         HWND window,
         UINT message,
