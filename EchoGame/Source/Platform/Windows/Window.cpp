@@ -40,11 +40,13 @@ namespace Echo
 
     Window::Window(
         Keyboard& keyboard,
+        Mouse& mouse,
         int clientWidth,
         int clientHeight,
         const wchar_t* title
     )
         : m_keyboard(keyboard),
+        m_mouse(mouse),
         m_clientWidth(
             static_cast<unsigned int>(
                 clientWidth
@@ -190,6 +192,16 @@ namespace Echo
         return m_handle;
     }
 
+    unsigned int Window::GetClientWidth() const noexcept
+    {
+        return m_clientWidth;
+    }
+
+    unsigned int Window::GetClientHeight() const noexcept
+    {
+        return m_clientHeight;
+    }
+
     void Window::SetTitle(
         const std::wstring& title
     ) noexcept
@@ -268,6 +280,71 @@ namespace Echo
         case WM_KILLFOCUS:
         {
             m_keyboard.Reset();
+
+            m_mouse.SetInsideWindow(false);
+            m_mouse.SetLeftButtonState(false);
+
+            return 0;
+        }
+
+        case WM_MOUSEMOVE:
+        {
+            const int mouseX =
+                GET_X_LPARAM(lParam);
+
+            const int mouseY =
+                GET_Y_LPARAM(lParam);
+
+            m_mouse.SetPosition(
+                mouseX,
+                mouseY
+            );
+
+            if (!m_mouse.IsInsideWindow())
+            {
+                TRACKMOUSEEVENT trackingEvent{};
+
+                trackingEvent.cbSize =
+                    sizeof(TRACKMOUSEEVENT);
+
+                trackingEvent.dwFlags =
+                    TME_LEAVE;
+
+                trackingEvent.hwndTrack =
+                    window;
+
+                TrackMouseEvent(
+                    &trackingEvent
+                );
+
+                m_mouse.SetInsideWindow(true);
+            }
+
+            return 0;
+        }
+
+        case WM_MOUSELEAVE:
+        {
+            m_mouse.SetInsideWindow(false);
+
+            return 0;
+        }
+
+        case WM_LBUTTONDOWN:
+        {
+            m_mouse.SetLeftButtonState(true);
+
+            SetCapture(window);
+
+            return 0;
+        }
+
+        case WM_LBUTTONUP:
+        {
+            m_mouse.SetLeftButtonState(false);
+
+            ReleaseCapture();
+
             return 0;
         }
 
