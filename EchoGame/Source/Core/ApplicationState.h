@@ -23,4 +23,14 @@ namespace Echo
 
         Count
     };
+
+    enum class SettingsMenuItem : std::size_t
+    {
+        Fullscreen,
+        VerticalSync,
+        DebugOverlay,
+        Back,
+
+        Count
+    };
 }

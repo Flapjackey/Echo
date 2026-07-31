@@ -34,7 +34,9 @@ namespace Echo
             float blue
         ) noexcept;
 
-        void EndFrame();
+        void EndFrame(
+            bool verticalSync
+        );
 
         void Resize(
             unsigned int width,
