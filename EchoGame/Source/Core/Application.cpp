@@ -239,6 +239,26 @@ namespace Echo
                 break;
             }
 
+            case ApplicationState::Paused:
+            {
+                m_graphics.BeginFrame(
+                    0.02f,
+                    0.04f,
+                    0.08f
+                );
+
+                // Draw the frozen game world.
+                RenderGameplay();
+
+                // Draw the pause interface over the game.
+                m_pauseMenu.Render(
+                    m_textRenderer,
+                    m_window
+                );
+
+                break;
+            }
+
             case ApplicationState::HostGame:
             case ApplicationState::JoinGame:
             {
@@ -695,62 +715,6 @@ namespace Echo
             EnterState(
                 ApplicationState::LocalGame
             );
-
-            break;
-        }
-
-        case ApplicationState::Paused:
-        {
-            const PauseMenuAction action =
-                m_pauseMenu.Update(
-                    m_keyboard,
-                    m_mouse,
-                    m_window
-                );
-
-            switch (action)
-            {
-            case PauseMenuAction::None:
-            {
-                break;
-            }
-
-            case PauseMenuAction::Resume:
-            {
-                EnterState(
-                    ApplicationState::LocalGame
-                );
-
-                break;
-            }
-
-            case PauseMenuAction::OpenSettings:
-            {
-                m_settingsReturnState =
-                    ApplicationState::Paused;
-
-                EnterState(
-                    ApplicationState::Settings
-                );
-
-                break;
-            }
-
-            case PauseMenuAction::ReturnToMainMenu:
-            {
-                EnterState(
-                    ApplicationState::MainMenu
-                );
-
-                break;
-            }
-
-            case PauseMenuAction::Exit:
-            {
-                m_exitRequested = true;
-                break;
-            }
-            }
 
             break;
         }
@@ -1431,55 +1395,39 @@ namespace Echo
             switch (m_selectedMenuItem)
             {
             case MainMenuItem::LocalGame:
+            {
                 title += L"Local Game";
-                break;
-
-            case ApplicationState::Paused:
-            {
-                m_window.SetTitle(
-                    L"Echo | Paused | Escape: Resume"
-                );
-
-                break;
-            }
-
-            case ApplicationState::Paused:
-            {
-                m_graphics.BeginFrame(
-                    0.02f,
-                    0.04f,
-                    0.08f
-                );
-
-                // The game world remains visible but frozen.
-                RenderGameplay();
-
-                m_pauseMenu.Render(
-                    m_textRenderer,
-                    m_window
-                );
-
                 break;
             }
 
             case MainMenuItem::HostGame:
+            {
                 title += L"Host Game";
                 break;
+            }
 
             case MainMenuItem::JoinGame:
+            {
                 title += L"Join Game";
                 break;
+            }
 
             case MainMenuItem::Settings:
+            {
                 title += L"Settings";
                 break;
+            }
 
             case MainMenuItem::Exit:
+            {
                 title += L"Exit";
                 break;
+            }
 
             case MainMenuItem::Count:
+            {
                 break;
+            }
             }
 
             title +=
@@ -1493,7 +1441,16 @@ namespace Echo
         case ApplicationState::LocalGame:
         {
             m_window.SetTitle(
-                L"Echo | Local Game | Escape: Menu"
+                L"Echo | Local Game | Escape: Pause"
+            );
+
+            break;
+        }
+
+        case ApplicationState::Paused:
+        {
+            m_window.SetTitle(
+                L"Echo | Paused | Escape: Resume"
             );
 
             break;
