@@ -30,7 +30,7 @@
     <ClCompile Include="Source\Graphics\GraphicsDevice.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
-    <ClCompile Include="Source\Graphics\TriangleRenderer.cpp">
+    <ClCompile Include="Source\Graphics\QuadRenderer.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
   </ItemGroup>
@@ -50,7 +50,7 @@
     <ClInclude Include="Source\Platform\Windows\WindowsCommon.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
-    <ClInclude Include="Source\Graphics\TriangleRenderer.h">
+    <ClInclude Include="Source\Graphics\QuadRenderer.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
   </ItemGroup>

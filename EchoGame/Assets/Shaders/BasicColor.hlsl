@@ -1,3 +1,13 @@
+cbuffer TransformBuffer : register(b0)
+{
+    float2 objectPosition;
+    float2 objectSize;
+
+    float rotation;
+    float aspectRatio;
+    float2 padding;
+};
+
 struct VertexInput
 {
     float2 position : POSITION;
@@ -14,8 +24,29 @@ PixelInput VSMain(VertexInput input)
 {
     PixelInput output;
 
+    // Quad vertices are initially between -0.5 and 0.5.
+    float2 localPosition =
+        input.position * objectSize;
+
+    const float cosine = cos(rotation);
+    const float sine = sin(rotation);
+
+    float2 rotatedPosition;
+
+    rotatedPosition.x =
+        localPosition.x * cosine -
+        localPosition.y * sine;
+
+    rotatedPosition.y =
+        localPosition.x * sine +
+        localPosition.y * cosine;
+
+    // Correct horizontal scale so a square remains square
+    // on a widescreen window.
+    rotatedPosition.x /= aspectRatio;
+
     output.position = float4(
-        input.position,
+        rotatedPosition + objectPosition,
         0.0f,
         1.0f
     );

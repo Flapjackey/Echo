@@ -242,4 +242,16 @@ namespace Echo
             "Failed to present Direct3D frame."
         );
     }
+
+    ID3D11Device*
+        GraphicsDevice::GetDevice() const noexcept
+    {
+        return m_device.Get();
+    }
+
+    ID3D11DeviceContext*
+        GraphicsDevice::GetContext() const noexcept
+    {
+        return m_context.Get();
+    }
 }

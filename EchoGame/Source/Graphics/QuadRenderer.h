@@ -6,22 +6,29 @@
 
 namespace Echo
 {
-    class TriangleRenderer final
+    class QuadRenderer final
     {
     public:
-        explicit TriangleRenderer(
+        explicit QuadRenderer(
             GraphicsDevice& graphics
         );
 
-        TriangleRenderer(
-            const TriangleRenderer&
+        QuadRenderer(
+            const QuadRenderer&
         ) = delete;
 
-        TriangleRenderer& operator=(
-            const TriangleRenderer&
+        QuadRenderer& operator=(
+            const QuadRenderer&
             ) = delete;
 
-        void Draw() noexcept;
+        void Draw(
+            float positionX,
+            float positionY,
+            float width,
+            float height,
+            float rotation,
+            float aspectRatio
+        );
 
     private:
         ID3D11DeviceContext* m_context =
@@ -29,6 +36,9 @@ namespace Echo
 
         Microsoft::WRL::ComPtr<ID3D11Buffer>
             m_vertexBuffer;
+
+        Microsoft::WRL::ComPtr<ID3D11Buffer>
+            m_indexBuffer;
 
         Microsoft::WRL::ComPtr<ID3D11VertexShader>
             m_vertexShader;
@@ -38,5 +48,8 @@ namespace Echo
 
         Microsoft::WRL::ComPtr<ID3D11InputLayout>
             m_inputLayout;
+
+        Microsoft::WRL::ComPtr<ID3D11Buffer>
+            m_constantBuffer;
     };
 }

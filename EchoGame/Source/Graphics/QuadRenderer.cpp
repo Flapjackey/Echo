@@ -1,7 +1,8 @@
-#include "Graphics/TriangleRenderer.h"
+#include "Graphics/QuadRenderer.h"
 
 #include <d3dcompiler.h>
 
+#include <cstdint>
 #include <stdexcept>
 #include <string>
 
@@ -16,6 +17,21 @@ namespace
         float position[2];
         float color[3];
     };
+
+    struct alignas(16) TransformBuffer
+    {
+        float position[2];
+        float size[2];
+
+        float rotation;
+        float aspectRatio;
+        float padding[2];
+    };
+
+    static_assert(
+        sizeof(TransformBuffer) % 16 == 0,
+        "Constant buffer size must be a multiple of 16 bytes."
+        );
 
     void ThrowIfFailed(
         HRESULT result,
@@ -85,10 +101,12 @@ namespace
 
 namespace Echo
 {
-    TriangleRenderer::TriangleRenderer(
+    QuadRenderer::QuadRenderer(
         GraphicsDevice& graphics
     )
     {
+        
+
         ID3D11Device* device =
             graphics.GetDevice();
 
@@ -163,9 +181,7 @@ namespace Echo
         ThrowIfFailed(
             device->CreateInputLayout(
                 inputElements,
-                static_cast<unsigned int>(
-                    std::size(inputElements)
-                    ),
+                2,
                 vertexShaderCode->GetBufferPointer(),
                 vertexShaderCode->GetBufferSize(),
                 m_inputLayout.GetAddressOf()
@@ -175,48 +191,165 @@ namespace Echo
 
         const Vertex vertices[]
         {
+            // Top-left.
             {
-                { 0.0f, 0.65f },
+                { -0.5f, 0.5f },
                 { 1.0f, 0.1f, 0.1f }
             },
+
+            // Top-right.
             {
-                { 0.65f, -0.65f },
+                { 0.5f, 0.5f },
                 { 0.1f, 1.0f, 0.1f }
             },
+
+            // Bottom-right.
             {
-                { -0.65f, -0.65f },
+                { 0.5f, -0.5f },
                 { 0.1f, 0.3f, 1.0f }
+            },
+
+            // Bottom-left.
+            {
+                { -0.5f, -0.5f },
+                { 1.0f, 0.1f, 1.0f }
             }
         };
 
-        D3D11_BUFFER_DESC bufferDescription{};
+        D3D11_BUFFER_DESC vertexBufferDescription{};
 
-        bufferDescription.ByteWidth =
-            sizeof(vertices);
+        vertexBufferDescription.ByteWidth =
+            static_cast<unsigned int>(
+                sizeof(vertices)
+                );
 
-        bufferDescription.Usage =
+        vertexBufferDescription.Usage =
             D3D11_USAGE_IMMUTABLE;
 
-        bufferDescription.BindFlags =
+        vertexBufferDescription.BindFlags =
             D3D11_BIND_VERTEX_BUFFER;
 
-        D3D11_SUBRESOURCE_DATA initialData{};
+        D3D11_SUBRESOURCE_DATA vertexInitialData{};
 
-        initialData.pSysMem =
+        vertexInitialData.pSysMem =
             vertices;
 
         ThrowIfFailed(
             device->CreateBuffer(
-                &bufferDescription,
-                &initialData,
+                &vertexBufferDescription,
+                &vertexInitialData,
                 m_vertexBuffer.GetAddressOf()
             ),
-            "Failed to create triangle vertex buffer."
+            "Failed to create quad vertex buffer."
+        );
+
+        const std::uint16_t indices[]
+        {
+            0, 1, 2,
+            0, 2, 3
+        };
+
+        D3D11_BUFFER_DESC indexBufferDescription{};
+
+        indexBufferDescription.ByteWidth =
+            static_cast<unsigned int>(
+                sizeof(indices)
+                );
+
+        indexBufferDescription.Usage =
+            D3D11_USAGE_IMMUTABLE;
+
+        indexBufferDescription.BindFlags =
+            D3D11_BIND_INDEX_BUFFER;
+
+        D3D11_SUBRESOURCE_DATA indexInitialData{};
+
+        indexInitialData.pSysMem =
+            indices;
+
+        ThrowIfFailed(
+            device->CreateBuffer(
+                &indexBufferDescription,
+                &indexInitialData,
+                m_indexBuffer.GetAddressOf()
+            ),
+            "Failed to create quad index buffer."
+        );
+        D3D11_BUFFER_DESC
+            constantBufferDescription{};
+
+        constantBufferDescription.ByteWidth =
+            sizeof(TransformBuffer);
+
+        constantBufferDescription.Usage =
+            D3D11_USAGE_DYNAMIC;
+
+        constantBufferDescription.BindFlags =
+            D3D11_BIND_CONSTANT_BUFFER;
+
+        constantBufferDescription.CPUAccessFlags =
+            D3D11_CPU_ACCESS_WRITE;
+
+        ThrowIfFailed(
+            device->CreateBuffer(
+                &constantBufferDescription,
+                nullptr,
+                m_constantBuffer.GetAddressOf()
+            ),
+            "Failed to create transform constant buffer."
         );
     }
 
-    void TriangleRenderer::Draw() noexcept
+    void QuadRenderer::Draw(
+        float positionX,
+        float positionY,
+        float width,
+        float height,
+        float rotation,
+        float aspectRatio
+    )
     {
+        if (aspectRatio <= 0.0f)
+        {
+            return;
+        }
+
+        D3D11_MAPPED_SUBRESOURCE
+            mappedResource{};
+
+        ThrowIfFailed(
+            m_context->Map(
+                m_constantBuffer.Get(),
+                0,
+                D3D11_MAP_WRITE_DISCARD,
+                0,
+                &mappedResource
+            ),
+            "Failed to update transform constant buffer."
+        );
+
+        auto* transform =
+            static_cast<TransformBuffer*>(
+                mappedResource.pData
+                );
+
+        transform->position[0] = positionX;
+        transform->position[1] = positionY;
+
+        transform->size[0] = width;
+        transform->size[1] = height;
+
+        transform->rotation = rotation;
+        transform->aspectRatio = aspectRatio;
+
+        transform->padding[0] = 0.0f;
+        transform->padding[1] = 0.0f;
+
+        m_context->Unmap(
+            m_constantBuffer.Get(),
+            0
+        );
+
         const unsigned int stride =
             sizeof(Vertex);
 
@@ -224,6 +357,9 @@ namespace Echo
 
         ID3D11Buffer* vertexBuffer =
             m_vertexBuffer.Get();
+
+        ID3D11Buffer* constantBuffer =
+            m_constantBuffer.Get();
 
         m_context->IASetInputLayout(
             m_inputLayout.Get()
@@ -237,6 +373,12 @@ namespace Echo
             &offset
         );
 
+        m_context->IASetIndexBuffer(
+            m_indexBuffer.Get(),
+            DXGI_FORMAT_R16_UINT,
+            0
+        );
+
         m_context->IASetPrimitiveTopology(
             D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST
         );
@@ -247,14 +389,21 @@ namespace Echo
             0
         );
 
+        m_context->VSSetConstantBuffers(
+            0,
+            1,
+            &constantBuffer
+        );
+
         m_context->PSSetShader(
             m_pixelShader.Get(),
             nullptr,
             0
         );
 
-        m_context->Draw(
-            3,
+        m_context->DrawIndexed(
+            6,
+            0,
             0
         );
     }
