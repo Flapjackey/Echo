@@ -57,15 +57,4 @@ namespace Echo
         Microsoft::WRL::ComPtr<ID3D11RenderTargetView>
             m_renderTargetView;
     };
-
-    ID3D11Device* GraphicsDevice::GetDevice() const noexcept
-    {
-        return m_device.Get();
-    }
-
-    ID3D11DeviceContext*
-        GraphicsDevice::GetContext() const noexcept
-    {
-        return m_context.Get();
-    }
 }
