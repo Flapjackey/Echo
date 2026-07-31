@@ -296,9 +296,7 @@ namespace Echo
         case WM_KILLFOCUS:
         {
             m_keyboard.Reset();
-
-            m_mouse.SetInsideWindow(false);
-            m_mouse.SetLeftButtonState(false);
+            m_mouse.Reset();
 
             return 0;
         }

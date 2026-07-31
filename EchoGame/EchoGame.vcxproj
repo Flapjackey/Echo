@@ -77,6 +77,7 @@
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>$(ProjectDir)Source</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -92,6 +93,7 @@
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>$(ProjectDir)Source</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -105,6 +107,7 @@
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>$(ProjectDir)Source</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -120,6 +123,7 @@
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>$(ProjectDir)Source</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -134,6 +138,7 @@
     <ClCompile Include="Source\Game\Projectile.cpp" />
     <ClCompile Include="Source\Graphics\GraphicsDevice.cpp" />
     <ClCompile Include="Source\Graphics\QuadRenderer.cpp" />
+    <ClCompile Include="Source\Graphics\TextRenderer.cpp" />
     <ClCompile Include="Source\Input\Keyboard.cpp" />
     <ClCompile Include="Source\Input\Mouse.cpp" />
     <ClCompile Include="Source\main.cpp" />
@@ -149,6 +154,7 @@
     <ClInclude Include="Source\Game\Projectile.h" />
     <ClInclude Include="Source\Graphics\GraphicsDevice.h" />
     <ClInclude Include="Source\Graphics\QuadRenderer.h" />
+    <ClInclude Include="Source\Graphics\TextRenderer.h" />
     <ClInclude Include="Source\Input\Key.h" />
     <ClInclude Include="Source\Input\Keyboard.h" />
     <ClInclude Include="Source\Input\Mouse.h" />
