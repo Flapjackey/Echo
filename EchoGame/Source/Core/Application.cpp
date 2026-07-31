@@ -4,6 +4,7 @@
 #include <cmath>
 #include <iomanip>
 #include <sstream>
+#include "UI/PauseMenu.h"
 
 namespace
 {
@@ -254,9 +255,13 @@ namespace Echo
 
             case ApplicationState::Settings:
             {
-                m_window.SetTitle(
-                    L"Echo | Settings | Escape: Back"
+                m_graphics.BeginFrame(
+                    0.025f,
+                    0.035f,
+                    0.06f
                 );
+
+                RenderSettings();
 
                 break;
             }
@@ -305,9 +310,67 @@ namespace Echo
             if (m_keyboard.WasPressed(
                 Key::Escape))
             {
+                m_pauseMenu.Reset();
+
+                EnterState(
+                    ApplicationState::Paused
+                );
+            }
+
+            break;
+        }
+
+        case ApplicationState::Paused:
+        {
+            const PauseMenuAction action =
+                m_pauseMenu.Update(
+                    m_keyboard,
+                    m_mouse,
+                    m_window
+                );
+
+            switch (action)
+            {
+            case PauseMenuAction::None:
+            {
+                break;
+            }
+
+            case PauseMenuAction::Resume:
+            {
+                EnterState(
+                    ApplicationState::LocalGame
+                );
+
+                break;
+            }
+
+            case PauseMenuAction::OpenSettings:
+            {
+                m_settingsReturnState =
+                    ApplicationState::Paused;
+
+                EnterState(
+                    ApplicationState::Settings
+                );
+
+                break;
+            }
+
+            case PauseMenuAction::ReturnToMainMenu:
+            {
                 EnterState(
                     ApplicationState::MainMenu
                 );
+
+                break;
+            }
+
+            case PauseMenuAction::Exit:
+            {
+                m_exitRequested = true;
+                break;
+            }
             }
 
             break;
@@ -636,6 +699,62 @@ namespace Echo
             break;
         }
 
+        case ApplicationState::Paused:
+        {
+            const PauseMenuAction action =
+                m_pauseMenu.Update(
+                    m_keyboard,
+                    m_mouse,
+                    m_window
+                );
+
+            switch (action)
+            {
+            case PauseMenuAction::None:
+            {
+                break;
+            }
+
+            case PauseMenuAction::Resume:
+            {
+                EnterState(
+                    ApplicationState::LocalGame
+                );
+
+                break;
+            }
+
+            case PauseMenuAction::OpenSettings:
+            {
+                m_settingsReturnState =
+                    ApplicationState::Paused;
+
+                EnterState(
+                    ApplicationState::Settings
+                );
+
+                break;
+            }
+
+            case PauseMenuAction::ReturnToMainMenu:
+            {
+                EnterState(
+                    ApplicationState::MainMenu
+                );
+
+                break;
+            }
+
+            case PauseMenuAction::Exit:
+            {
+                m_exitRequested = true;
+                break;
+            }
+            }
+
+            break;
+        }
+
         case MainMenuItem::HostGame:
         {
             EnterState(
@@ -656,6 +775,9 @@ namespace Echo
 
         case MainMenuItem::Settings:
         {
+            m_settingsReturnState =
+                ApplicationState::MainMenu;
+
             EnterState(
                 ApplicationState::Settings
             );
@@ -682,7 +804,7 @@ namespace Echo
             Key::Escape))
         {
             EnterState(
-                ApplicationState::MainMenu
+                m_settingsReturnState
             );
 
             return;
@@ -803,7 +925,7 @@ namespace Echo
         case SettingsMenuItem::Back:
         {
             EnterState(
-                ApplicationState::MainMenu
+                m_settingsReturnState
             );
 
             break;
@@ -1255,10 +1377,6 @@ namespace Echo
             screenTitle = L"Join Game";
             break;
 
-        case ApplicationState::Settings:
-            screenTitle = L"Settings";
-            break;
-
         default:
             break;
         }
@@ -1315,6 +1433,34 @@ namespace Echo
             case MainMenuItem::LocalGame:
                 title += L"Local Game";
                 break;
+
+            case ApplicationState::Paused:
+            {
+                m_window.SetTitle(
+                    L"Echo | Paused | Escape: Resume"
+                );
+
+                break;
+            }
+
+            case ApplicationState::Paused:
+            {
+                m_graphics.BeginFrame(
+                    0.02f,
+                    0.04f,
+                    0.08f
+                );
+
+                // The game world remains visible but frozen.
+                RenderGameplay();
+
+                m_pauseMenu.Render(
+                    m_textRenderer,
+                    m_window
+                );
+
+                break;
+            }
 
             case MainMenuItem::HostGame:
                 title += L"Host Game";
@@ -1374,7 +1520,7 @@ namespace Echo
         case ApplicationState::Settings:
         {
             m_window.SetTitle(
-                L"Echo | Settings placeholder | Escape: Back"
+                L"Echo | Settings | Escape: Back"
             );
 
             break;

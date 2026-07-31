@@ -11,6 +11,7 @@
 #include "Input/Keyboard.h"
 #include "Input/Mouse.h"
 #include "Platform/Windows/Window.h"
+#include "UI/PauseMenu.h"
 
 namespace Echo
 {
@@ -72,11 +73,16 @@ namespace Echo
 
         GameSession m_gameSession;
 
+        PauseMenu m_pauseMenu;
+
         Clock m_clock;
 
         GameSettings m_settings;
 
         ApplicationState m_applicationState =
+            ApplicationState::MainMenu;
+
+        ApplicationState m_settingsReturnState =
             ApplicationState::MainMenu;
 
         MainMenuItem m_selectedMenuItem =
