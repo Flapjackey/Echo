@@ -44,6 +44,19 @@ namespace Echo
 
         while (m_window.ProcessMessages())
         {
+            unsigned int resizedWidth = 0;
+            unsigned int resizedHeight = 0;
+
+            if (m_window.ConsumeResize(
+                resizedWidth,
+                resizedHeight))
+            {
+                m_graphics.Resize(
+                    resizedWidth,
+                    resizedHeight
+                );
+            }
+
             // Limit unusually large time jumps.
             // This can happen after pausing in the debugger.
             const double frameTime = std::min(

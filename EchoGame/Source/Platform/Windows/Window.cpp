@@ -12,7 +12,20 @@ namespace Echo
         int clientHeight,
         const wchar_t* title
     )
+        : m_clientWidth(
+            static_cast<unsigned int>(clientWidth)
+        ),
+        m_clientHeight(
+            static_cast<unsigned int>(clientHeight)
+        )
     {
+        if (clientWidth <= 0 || clientHeight <= 0)
+        {
+            throw std::invalid_argument(
+                "Window size must be greater than zero."
+            );
+        }
+
         m_instance = GetModuleHandleW(nullptr);
 
         if (m_instance == nullptr)
@@ -79,7 +92,9 @@ namespace Echo
             nullptr,
             nullptr,
             m_instance,
-            nullptr
+
+            // Pass the current C++ object to WindowProcedure.
+            this
         );
 
         if (m_handle == nullptr)
@@ -151,14 +166,65 @@ namespace Echo
         }
     }
 
-    LRESULT CALLBACK Window::WindowProcedure(
+    bool Window::ConsumeResize(
+        unsigned int& width,
+        unsigned int& height
+    ) noexcept
+    {
+        if (!m_resizePending)
+        {
+            return false;
+        }
+
+        width = m_clientWidth;
+        height = m_clientHeight;
+
+        m_resizePending = false;
+
+        return true;
+    }
+
+    LRESULT Window::HandleMessage(
         HWND window,
         UINT message,
         WPARAM wParam,
-        LPARAM lParam)
+        LPARAM lParam
+    )
     {
         switch (message)
         {
+        case WM_SIZE:
+        {
+            // Do not resize Direct3D buffers to 0x0
+            // while the window is minimized.
+            if (wParam == SIZE_MINIMIZED)
+            {
+                return 0;
+            }
+
+            const unsigned int width =
+                static_cast<unsigned int>(
+                    LOWORD(lParam)
+                    );
+
+            const unsigned int height =
+                static_cast<unsigned int>(
+                    HIWORD(lParam)
+                    );
+
+            if (width > 0 &&
+                height > 0 &&
+                (width != m_clientWidth ||
+                    height != m_clientHeight))
+            {
+                m_clientWidth = width;
+                m_clientHeight = height;
+                m_resizePending = true;
+            }
+
+            return 0;
+        }
+
         case WM_CLOSE:
         {
             DestroyWindow(window);
@@ -167,9 +233,86 @@ namespace Echo
 
         case WM_DESTROY:
         {
+            m_handle = nullptr;
+
             PostQuitMessage(0);
             return 0;
         }
+
+        case WM_NCDESTROY:
+        {
+            SetWindowLongPtrW(
+                window,
+                GWLP_USERDATA,
+                0
+            );
+
+            return DefWindowProcW(
+                window,
+                message,
+                wParam,
+                lParam
+            );
+        }
+        }
+
+        return DefWindowProcW(
+            window,
+            message,
+            wParam,
+            lParam
+        );
+    }
+
+    LRESULT CALLBACK Window::WindowProcedure(
+        HWND window,
+        UINT message,
+        WPARAM wParam,
+        LPARAM lParam
+    )
+    {
+        Window* owner =
+            reinterpret_cast<Window*>(
+                GetWindowLongPtrW(
+                    window,
+                    GWLP_USERDATA
+                )
+                );
+
+        if (message == WM_NCCREATE)
+        {
+            const auto* creationData =
+                reinterpret_cast<CREATESTRUCTW*>(
+                    lParam
+                    );
+
+            owner =
+                static_cast<Window*>(
+                    creationData->lpCreateParams
+                    );
+
+            if (owner != nullptr)
+            {
+                owner->m_handle = window;
+
+                SetWindowLongPtrW(
+                    window,
+                    GWLP_USERDATA,
+                    reinterpret_cast<LONG_PTR>(
+                        owner
+                        )
+                );
+            }
+        }
+
+        if (owner != nullptr)
+        {
+            return owner->HandleMessage(
+                window,
+                message,
+                wParam,
+                lParam
+            );
         }
 
         return DefWindowProcW(

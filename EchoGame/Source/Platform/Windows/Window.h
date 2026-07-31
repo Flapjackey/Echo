@@ -28,7 +28,20 @@ namespace Echo
             const std::wstring& title
         ) noexcept;
 
+        // Returns true once for every detected resize.
+        bool ConsumeResize(
+            unsigned int& width,
+            unsigned int& height
+        ) noexcept;
+
     private:
+        LRESULT HandleMessage(
+            HWND window,
+            UINT message,
+            WPARAM wParam,
+            LPARAM lParam
+        );
+
         static LRESULT CALLBACK WindowProcedure(
             HWND window,
             UINT message,
@@ -38,6 +51,11 @@ namespace Echo
 
         HINSTANCE m_instance = nullptr;
         HWND m_handle = nullptr;
+
+        unsigned int m_clientWidth = 0;
+        unsigned int m_clientHeight = 0;
+
+        bool m_resizePending = false;
 
         const wchar_t* m_className =
             L"EchoGameWindowClass";

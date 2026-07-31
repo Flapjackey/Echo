@@ -166,6 +166,45 @@ namespace Echo
         );
     }
 
+    void GraphicsDevice::Resize(
+        unsigned int width,
+        unsigned int height
+    )
+    {
+        if (width == 0 || height == 0)
+        {
+            return;
+        }
+
+        // The old back buffer cannot be resized
+        // while it is bound to the rendering pipeline.
+        m_context->OMSetRenderTargets(
+            0,
+            nullptr,
+            nullptr
+        );
+
+        // Release our reference to the old back buffer view.
+        m_renderTargetView.Reset();
+
+        ThrowIfFailed(
+            m_swapChain->ResizeBuffers(
+                0,
+                width,
+                height,
+                DXGI_FORMAT_UNKNOWN,
+                0
+            ),
+            "Failed to resize Direct3D swap chain."
+        );
+
+        // Acquire the new back buffer and recreate its view.
+        CreateRenderTarget(
+            width,
+            height
+        );
+    }
+
     void GraphicsDevice::BeginFrame(
         float red,
         float green,
