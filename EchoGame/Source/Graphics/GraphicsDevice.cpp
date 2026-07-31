@@ -321,11 +321,18 @@ namespace Echo
         );
     }
 
-    void GraphicsDevice::EndFrame()
+    void GraphicsDevice::EndFrame(
+        bool verticalSync
+    )
     {
+        const unsigned int syncInterval =
+            verticalSync
+            ? 1u
+            : 0u;
+
         ThrowIfFailed(
             m_swapChain->Present(
-                1,
+                syncInterval,
                 0
             ),
             "Failed to present Direct3D frame."

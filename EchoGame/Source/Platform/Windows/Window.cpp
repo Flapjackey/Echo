@@ -231,6 +231,141 @@ namespace Echo
         }
     }
 
+    void Window::SetFullscreen(
+        bool fullscreen
+    ) noexcept
+    {
+        if (m_handle == nullptr ||
+            fullscreen == m_isFullscreen)
+        {
+            return;
+        }
+
+        if (fullscreen)
+        {
+            m_windowedStyle =
+                GetWindowLongPtrW(
+                    m_handle,
+                    GWL_STYLE
+                );
+
+            m_windowedPlacement = {};
+
+            m_windowedPlacement.length =
+                sizeof(WINDOWPLACEMENT);
+
+            if (!GetWindowPlacement(
+                m_handle,
+                &m_windowedPlacement))
+            {
+                return;
+            }
+
+            const HMONITOR monitor =
+                MonitorFromWindow(
+                    m_handle,
+                    MONITOR_DEFAULTTONEAREST
+                );
+
+            if (monitor == nullptr)
+            {
+                return;
+            }
+
+            MONITORINFO monitorInformation{};
+
+            monitorInformation.cbSize =
+                sizeof(MONITORINFO);
+
+            if (!GetMonitorInfoW(
+                monitor,
+                &monitorInformation))
+            {
+                return;
+            }
+
+            const LONG_PTR fullscreenStyle =
+                m_windowedStyle &
+                ~static_cast<LONG_PTR>(
+                    WS_OVERLAPPEDWINDOW
+                    );
+
+            SetWindowLongPtrW(
+                m_handle,
+                GWL_STYLE,
+                fullscreenStyle
+            );
+
+            const RECT& monitorRectangle =
+                monitorInformation.rcMonitor;
+
+            if (!SetWindowPos(
+                m_handle,
+                HWND_TOP,
+                monitorRectangle.left,
+                monitorRectangle.top,
+                monitorRectangle.right -
+                monitorRectangle.left,
+                monitorRectangle.bottom -
+                monitorRectangle.top,
+                SWP_NOOWNERZORDER |
+                SWP_FRAMECHANGED))
+            {
+                SetWindowLongPtrW(
+                    m_handle,
+                    GWL_STYLE,
+                    m_windowedStyle
+                );
+
+                SetWindowPlacement(
+                    m_handle,
+                    &m_windowedPlacement
+                );
+
+                return;
+            }
+
+            m_isFullscreen = true;
+
+            return;
+        }
+
+        SetWindowLongPtrW(
+            m_handle,
+            GWL_STYLE,
+            m_windowedStyle
+        );
+
+        m_windowedPlacement.length =
+            sizeof(WINDOWPLACEMENT);
+
+        SetWindowPlacement(
+            m_handle,
+            &m_windowedPlacement
+        );
+
+        SetWindowPos(
+            m_handle,
+            nullptr,
+            0,
+            0,
+            0,
+            0,
+            SWP_NOMOVE |
+            SWP_NOSIZE |
+            SWP_NOZORDER |
+            SWP_NOOWNERZORDER |
+            SWP_FRAMECHANGED
+        );
+
+        m_isFullscreen = false;
+    }
+
+    bool Window::IsFullscreen() const noexcept
+    {
+        return m_isFullscreen;
+    }
+
     bool Window::ConsumeResize(
         unsigned int& width,
         unsigned int& height

@@ -34,6 +34,12 @@ namespace Echo
             const std::wstring& title
         ) noexcept;
 
+        void SetFullscreen(
+            bool fullscreen
+        ) noexcept;
+
+        bool IsFullscreen() const noexcept;
+
         // Returns true once for every detected resize.
         bool ConsumeResize(
             unsigned int& width,
@@ -65,6 +71,12 @@ namespace Echo
         unsigned int m_clientHeight = 0;
 
         bool m_resizePending = false;
+        bool m_isFullscreen = false;
+
+        LONG_PTR m_windowedStyle =
+            WS_OVERLAPPEDWINDOW;
+
+        WINDOWPLACEMENT m_windowedPlacement{};
 
         const wchar_t* m_className =
             L"EchoGameWindowClass";
