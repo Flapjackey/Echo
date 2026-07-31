@@ -10,10 +10,14 @@
 #include "Graphics/TextRenderer.h"
 #include "Input/Keyboard.h"
 #include "Input/Mouse.h"
+#include "Network/NetworkSession.h"
+#include "Network/NetworkSystem.h"
 #include "Platform/Windows/Window.h"
 #include "UI/MainMenu.h"
 #include "UI/PauseMenu.h"
 #include "UI/SettingsMenu.h"
+
+#include <cstddef>
 
 namespace Echo
 {
@@ -35,6 +39,19 @@ namespace Echo
             BuildLocalPlayerCommands()
             const noexcept;
 
+        GameSession::PlayerCommands
+            BuildHostPlayerCommands()
+            const noexcept;
+
+        NetworkPlayerInput
+            BuildLocalNetworkInput()
+            const noexcept;
+
+        PlayerCommand BuildPlayerCommand(
+            std::size_t playerIndex,
+            const NetworkPlayerInput& input
+        ) const noexcept;
+
         void HandleApplicationInput();
 
         void EnterState(
@@ -53,6 +70,12 @@ namespace Echo
 
         Keyboard m_keyboard;
         Mouse m_mouse;
+
+        NetworkSystem m_networkSystem;
+        NetworkSession m_networkSession;
+
+        NetworkPlayerInput
+            m_latestRemotePlayerInput{};
 
         Window m_window;
 

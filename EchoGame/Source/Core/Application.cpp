@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <iomanip>
 #include <sstream>
 
@@ -15,6 +16,10 @@ namespace
 
     constexpr unsigned int ClientHeight =
         720;
+
+    constexpr std::uint16_t
+        LocalNetworkPort =
+        27015;
 }
 
 namespace Echo
@@ -85,12 +90,58 @@ namespace Echo
 
             HandleApplicationInput();
 
+            m_networkSession.Update();
+
             if (m_applicationState ==
-                ApplicationState::LocalGame)
+                ApplicationState::JoinGame &&
+                m_networkSession.IsConnected())
             {
-                const GameSession::PlayerCommands
+                m_networkSession.QueuePlayerInput(
+                    BuildLocalNetworkInput()
+                );
+            }
+
+            if (m_applicationState ==
+                ApplicationState::HostGame &&
+                m_networkSession.IsConnected())
+            {
+                NetworkPlayerInput receivedInput{};
+
+                if (m_networkSession.
+                    TryConsumePlayerInput(
+                        receivedInput
+                    ))
+                {
+                    m_latestRemotePlayerInput =
+                        receivedInput;
+                }
+            }
+
+            const bool isConnectedHost =
+                m_applicationState ==
+                ApplicationState::HostGame &&
+                m_networkSession.IsConnected();
+
+            const bool isSimulationRunning =
+                m_applicationState ==
+                ApplicationState::LocalGame ||
+                isConnectedHost;
+
+            if (isSimulationRunning)
+            {
+                GameSession::PlayerCommands
+                    playerCommands{};
+
+                if (isConnectedHost)
+                {
                     playerCommands =
-                    BuildLocalPlayerCommands();
+                        BuildHostPlayerCommands();
+                }
+                else
+                {
+                    playerCommands =
+                        BuildLocalPlayerCommands();
+                }
 
                 accumulatedTime +=
                     frameTime;
@@ -109,8 +160,8 @@ namespace Echo
             }
             else
             {
-                // Prevent the menu time from accumulating and
-                // producing many updates when the game starts.
+                // Prevent inactive states from accumulating
+                // simulation time.
                 accumulatedTime = 0.0;
             }
 
@@ -168,6 +219,31 @@ namespace Echo
             }
 
             case ApplicationState::HostGame:
+            {
+                if (m_networkSession.IsConnected())
+                {
+                    m_graphics.BeginFrame(
+                        0.02f,
+                        0.04f,
+                        0.08f
+                    );
+
+                    RenderGameplay();
+                }
+                else
+                {
+                    m_graphics.BeginFrame(
+                        0.05f,
+                        0.03f,
+                        0.05f
+                    );
+
+                    RenderPlaceholder();
+                }
+
+                break;
+            }
+
             case ApplicationState::JoinGame:
             {
                 m_graphics.BeginFrame(
@@ -205,10 +281,11 @@ namespace Echo
                 m_settings.verticalSync
             );
 
-            if (m_applicationState ==
-                ApplicationState::LocalGame)
+            if (isSimulationRunning)
             {
-                UpdateStatistics(frameTime);
+                UpdateStatistics(
+                    frameTime
+                );
             }
 
             m_keyboard.EndFrame();
@@ -264,6 +341,15 @@ namespace Echo
 
             case MainMenuAction::HostGame:
             {
+                m_gameSession.Reset();
+
+                m_latestRemotePlayerInput =
+                    NetworkPlayerInput{};
+
+                m_networkSession.StartHost(
+                    LocalNetworkPort
+                );
+
                 EnterState(
                     ApplicationState::HostGame
                 );
@@ -273,6 +359,10 @@ namespace Echo
 
             case MainMenuAction::JoinGame:
             {
+                m_networkSession.StartClient(
+                    LocalNetworkPort
+                );
+
                 EnterState(
                     ApplicationState::JoinGame
                 );
@@ -381,6 +471,9 @@ namespace Echo
             if (m_keyboard.WasPressed(
                 Key::Escape))
             {
+
+                m_networkSession.Stop();
+
                 m_mainMenu.Reset();
 
                 EnterState(
@@ -627,7 +720,7 @@ namespace Echo
         );
 
         m_textRenderer.Draw(
-            L"This screen will be implemented later",
+            m_networkSession.GetStatusMessage(),
             D2D1_RECT_F{
                 0.0f,
                 clientHeight * 0.46f,
@@ -685,7 +778,7 @@ namespace Echo
         case ApplicationState::HostGame:
         {
             m_window.SetTitle(
-                L"Echo | Host Game placeholder | Escape: Back"
+                L"Echo | Host Game | Escape: Back"
             );
 
             break;
@@ -694,7 +787,7 @@ namespace Echo
         case ApplicationState::JoinGame:
         {
             m_window.SetTitle(
-                L"Echo | Join Game placeholder | Escape: Back"
+                L"Echo | Join Game | Escape: Back"
             );
 
             break;
@@ -716,52 +809,75 @@ namespace Echo
         const noexcept
     {
         GameSession::PlayerCommands
-            playerCommands{};
+            commands{};
 
-        PlayerCommand& playerOneCommand =
-            playerCommands[0];
+        commands[0] =
+            BuildPlayerCommand(
+                0,
+                BuildLocalNetworkInput()
+            );
+
+        return commands;
+    }
+
+    GameSession::PlayerCommands
+        Application::BuildHostPlayerCommands()
+        const noexcept
+    {
+        GameSession::PlayerCommands
+            commands{};
+
+        commands[0] =
+            BuildPlayerCommand(
+                0,
+                BuildLocalNetworkInput()
+            );
+
+        commands[1] =
+            BuildPlayerCommand(
+                1,
+                m_latestRemotePlayerInput
+            );
+
+        return commands;
+    }
+
+    NetworkPlayerInput
+        Application::BuildLocalNetworkInput()
+        const noexcept
+    {
+        NetworkPlayerInput input{};
 
         if (m_keyboard.IsDown(Key::A))
         {
-            playerOneCommand.movementX -=
+            input.movementX -=
                 1.0f;
         }
 
         if (m_keyboard.IsDown(Key::D))
         {
-            playerOneCommand.movementX +=
+            input.movementX +=
                 1.0f;
         }
 
         if (m_keyboard.IsDown(Key::W))
         {
-            playerOneCommand.movementY +=
+            input.movementY +=
                 1.0f;
         }
 
         if (m_keyboard.IsDown(Key::S))
         {
-            playerOneCommand.movementY -=
+            input.movementY -=
                 1.0f;
         }
 
-        const Player& playerOne =
-            m_gameSession.GetPlayer(0);
-
-        // Preserve the current aim direction when the
-        // cursor is outside the client area.
-        playerOneCommand.aimX =
-            playerOne.GetForwardX();
-
-        playerOneCommand.aimY =
-            playerOne.GetForwardY();
-
         if (!m_mouse.IsInsideWindow())
         {
-            return playerCommands;
+            return input;
         }
 
-        playerOneCommand.fire =
+        input.fire =
             m_mouse.IsLeftButtonDown();
 
         const float clientWidth =
@@ -777,7 +893,7 @@ namespace Echo
         if (clientWidth <= 0.0f ||
             clientHeight <= 0.0f)
         {
-            return playerCommands;
+            return input;
         }
 
         const float normalizedMouseX =
@@ -796,20 +912,60 @@ namespace Echo
                 ) /
             clientHeight;
 
-        const float mouseWorldX =
+        input.aimTargetX =
             normalizedMouseX *
             m_aspectRatio;
 
-        const float mouseWorldY =
+        input.aimTargetY =
             normalizedMouseY;
 
+        input.hasAimTarget =
+            true;
+
+        return input;
+    }
+
+    PlayerCommand Application::BuildPlayerCommand(
+        std::size_t playerIndex,
+        const NetworkPlayerInput& input
+    ) const noexcept
+    {
+        PlayerCommand command{};
+
+        command.movementX =
+            input.movementX;
+
+        command.movementY =
+            input.movementY;
+
+        command.fire =
+            input.fire;
+
+        const Player& player =
+            m_gameSession.GetPlayer(
+                playerIndex
+            );
+
+        // Preserve the current aim direction when
+        // no valid mouse target is available.
+        command.aimX =
+            player.GetForwardX();
+
+        command.aimY =
+            player.GetForwardY();
+
+        if (!input.hasAimTarget)
+        {
+            return command;
+        }
+
         const float directionX =
-            mouseWorldX -
-            playerOne.GetPositionX();
+            input.aimTargetX -
+            player.GetPositionX();
 
         const float directionY =
-            mouseWorldY -
-            playerOne.GetPositionY();
+            input.aimTargetY -
+            player.GetPositionY();
 
         const float directionLengthSquared =
             directionX * directionX +
@@ -821,7 +977,7 @@ namespace Echo
         if (directionLengthSquared <=
             DirectionEpsilon)
         {
-            return playerCommands;
+            return command;
         }
 
         const float inverseLength =
@@ -830,15 +986,15 @@ namespace Echo
                 directionLengthSquared
             );
 
-        playerOneCommand.aimX =
+        command.aimX =
             directionX *
             inverseLength;
 
-        playerOneCommand.aimY =
+        command.aimY =
             directionY *
             inverseLength;
 
-        return playerCommands;
+        return command;
     }
 
     void Application::UpdateStatistics(
