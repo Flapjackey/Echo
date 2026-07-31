@@ -5,6 +5,7 @@
 #include "Game/PlayerCommand.h"
 #include "Graphics/GraphicsDevice.h"
 #include "Graphics/QuadRenderer.h"
+#include "Graphics/TextRenderer.h"
 #include "Input/Keyboard.h"
 #include "Input/Mouse.h"
 #include "Platform/Windows/Window.h"
@@ -31,6 +32,10 @@ namespace Echo
         void HandleApplicationInput();
         void HandleMainMenuInput();
 
+        bool TryGetHoveredMainMenuItem(
+            MainMenuItem& menuItem
+        ) const noexcept;
+
         void EnterState(
             ApplicationState state
         );
@@ -52,6 +57,7 @@ namespace Echo
 
         GraphicsDevice m_graphics;
         QuadRenderer m_quadRenderer;
+        TextRenderer m_textRenderer;
 
         GameSession m_gameSession;
 

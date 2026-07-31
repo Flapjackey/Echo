@@ -12,6 +12,52 @@ namespace
 
     constexpr unsigned int ClientHeight =
         720;
+
+    constexpr const wchar_t*
+        MainMenuLabels[]
+    {
+        L"Local Game",
+        L"Host Game",
+        L"Join Game",
+        L"Settings",
+        L"Exit"
+    };
+
+    constexpr float MainMenuFirstItemY =
+        0.56f;
+
+    constexpr float MainMenuItemSpacing =
+        0.28f;
+
+    constexpr float MainMenuNormalWidth =
+        0.90f;
+
+    constexpr float MainMenuSelectedWidth =
+        1.25f;
+
+    constexpr float MainMenuNormalHeight =
+        0.12f;
+
+    constexpr float MainMenuSelectedHeight =
+        0.18f;
+
+    constexpr float MainMenuHitboxWidth =
+        1.25f;
+
+    constexpr float MainMenuHitboxHeight =
+        0.22f;
+
+    constexpr std::size_t
+        MainMenuLabelCount =
+        sizeof(MainMenuLabels) /
+        sizeof(MainMenuLabels[0]);
+
+    static_assert(
+        MainMenuLabelCount ==
+        static_cast<std::size_t>(
+            Echo::MainMenuItem::Count
+            )
+        );
 }
 
 namespace Echo
@@ -30,6 +76,9 @@ namespace Echo
             ClientHeight
         ),
         m_quadRenderer(
+            m_graphics
+        ),
+        m_textRenderer(
             m_graphics
         )
     {
@@ -160,8 +209,7 @@ namespace Echo
             }
 
             m_keyboard.EndFrame();
-
-            UpdateStatistics(frameTime);
+            m_mouse.EndFrame();
         }
 
         return 0;
@@ -218,6 +266,106 @@ namespace Echo
         }
     }
 
+    bool Application::TryGetHoveredMainMenuItem(
+        MainMenuItem& menuItem
+    ) const noexcept
+    {
+        if (!m_mouse.IsInsideWindow())
+        {
+            return false;
+        }
+
+        const float clientWidth =
+            static_cast<float>(
+                m_window.GetClientWidth()
+                );
+
+        const float clientHeight =
+            static_cast<float>(
+                m_window.GetClientHeight()
+                );
+
+        if (clientWidth <= 0.0f ||
+            clientHeight <= 0.0f)
+        {
+            return false;
+        }
+
+        const float normalizedMouseX =
+            2.0f *
+            static_cast<float>(
+                m_mouse.GetX()
+                ) /
+            clientWidth -
+            1.0f;
+
+        const float normalizedMouseY =
+            1.0f -
+            2.0f *
+            static_cast<float>(
+                m_mouse.GetY()
+                ) /
+            clientHeight;
+
+        // Convert screen X to the world coordinate
+        // system used by QuadRenderer.
+        const float mouseWorldX =
+            normalizedMouseX *
+            m_aspectRatio;
+
+        const float mouseWorldY =
+            normalizedMouseY;
+
+        constexpr std::size_t itemCount =
+            static_cast<std::size_t>(
+                MainMenuItem::Count
+                );
+
+        const float halfHitboxWidth =
+            MainMenuHitboxWidth *
+            0.5f;
+
+        const float halfHitboxHeight =
+            MainMenuHitboxHeight *
+            0.5f;
+
+        for (std::size_t index = 0;
+            index < itemCount;
+            ++index)
+        {
+            const float itemPositionY =
+                MainMenuFirstItemY -
+                static_cast<float>(index) *
+                MainMenuItemSpacing;
+
+            const bool insideX =
+                mouseWorldX >=
+                -halfHitboxWidth &&
+                mouseWorldX <=
+                halfHitboxWidth;
+
+            const bool insideY =
+                mouseWorldY >=
+                itemPositionY -
+                halfHitboxHeight &&
+                mouseWorldY <=
+                itemPositionY +
+                halfHitboxHeight;
+
+            if (insideX && insideY)
+            {
+                menuItem =
+                    static_cast<MainMenuItem>(
+                        index
+                        );
+
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     void Application::HandleMainMenuInput()
     {
         constexpr std::size_t itemCount =
@@ -232,7 +380,8 @@ namespace Echo
 
         bool selectionChanged = false;
 
-        if (m_keyboard.WasPressed(Key::Up))
+        if (m_keyboard.WasPressed(Key::Up) ||
+            m_keyboard.WasPressed(Key::W))
         {
             selectedIndex =
                 (selectedIndex +
@@ -243,7 +392,8 @@ namespace Echo
             selectionChanged = true;
         }
 
-        if (m_keyboard.WasPressed(Key::Down))
+        if (m_keyboard.WasPressed(Key::Down) ||
+            m_keyboard.WasPressed(Key::S))
         {
             selectedIndex =
                 (selectedIndex + 1) %
@@ -252,18 +402,56 @@ namespace Echo
             selectionChanged = true;
         }
 
-        m_selectedMenuItem =
-            static_cast<MainMenuItem>(
-                selectedIndex
-                );
-
         if (selectionChanged)
         {
+            m_selectedMenuItem =
+                static_cast<MainMenuItem>(
+                    selectedIndex
+                    );
+
             UpdateMenuTitle();
         }
 
-        if (!m_keyboard.WasPressed(
-            Key::Enter))
+        MainMenuItem hoveredItem{};
+
+        // Change selection only when the mouse actually
+        // moves. A stationary cursor will not block
+        // keyboard navigation.
+        if (m_mouse.WasMoved() &&
+            TryGetHoveredMainMenuItem(
+                hoveredItem
+            ))
+        {
+            if (hoveredItem !=
+                m_selectedMenuItem)
+            {
+                m_selectedMenuItem =
+                    hoveredItem;
+
+                UpdateMenuTitle();
+            }
+        }
+
+        bool activateSelectedItem =
+            m_keyboard.WasPressed(
+                Key::Enter
+            );
+
+        if (m_mouse.WasLeftButtonPressed() &&
+            TryGetHoveredMainMenuItem(
+                hoveredItem
+            ))
+        {
+            m_selectedMenuItem =
+                hoveredItem;
+
+            UpdateMenuTitle();
+
+            activateSelectedItem =
+                true;
+        }
+
+        if (!activateSelectedItem)
         {
             return;
         }
@@ -369,6 +557,22 @@ namespace Echo
                 MainMenuItem::Count
                 );
 
+        const float clientWidth =
+            static_cast<float>(
+                m_window.GetClientWidth()
+                );
+
+        const float clientHeight =
+            static_cast<float>(
+                m_window.GetClientHeight()
+                );
+
+        if (clientWidth <= 0.0f ||
+            clientHeight <= 0.0f)
+        {
+            return;
+        }
+
         for (std::size_t index = 0;
             index < itemCount;
             ++index)
@@ -380,19 +584,19 @@ namespace Echo
                     );
 
             const float positionY =
-                0.56f -
+                MainMenuFirstItemY -
                 static_cast<float>(index) *
-                0.28f;
+                MainMenuItemSpacing;
 
             const float width =
                 isSelected
-                ? 1.25f
-                : 0.90f;
+                ? MainMenuSelectedWidth
+                : MainMenuNormalWidth;
 
             const float height =
                 isSelected
-                ? 0.18f
-                : 0.12f;
+                ? MainMenuSelectedHeight
+                : MainMenuNormalHeight;
 
             m_quadRenderer.Draw(
                 0.0f,
@@ -403,6 +607,67 @@ namespace Echo
                 m_aspectRatio
             );
         }
+
+        // Direct2D text is drawn after the Direct3D menu bars.
+        m_textRenderer.Begin();
+
+        m_textRenderer.Draw(
+            L"ECHO",
+            D2D1_RECT_F{
+                0.0f,
+                20.0f,
+                clientWidth,
+                115.0f
+            },
+            TextStyle::Title
+        );
+
+        for (std::size_t index = 0;
+            index < itemCount;
+            ++index)
+        {
+            const bool isSelected =
+                index ==
+                static_cast<std::size_t>(
+                    m_selectedMenuItem
+                    );
+
+            const float positionY =
+                MainMenuFirstItemY -
+                static_cast<float>(index) *
+                MainMenuItemSpacing;
+
+            // Convert world Y to pixel Y.
+            const float centerY =
+                (1.0f - positionY) *
+                0.5f *
+                clientHeight;
+
+            m_textRenderer.Draw(
+                MainMenuLabels[index],
+                D2D1_RECT_F{
+                    0.0f,
+                    centerY - 30.0f,
+                    clientWidth,
+                    centerY + 30.0f
+                },
+                TextStyle::MenuItem,
+                isSelected
+            );
+        }
+
+        m_textRenderer.Draw(
+            L"W/S or Up/Down - Select | Enter - Confirm",
+            D2D1_RECT_F{
+                0.0f,
+                clientHeight - 55.0f,
+                clientWidth,
+                clientHeight - 10.0f
+            },
+            TextStyle::Hint
+        );
+
+        m_textRenderer.End();
     }
 
     void Application::RenderPlaceholder()
@@ -415,6 +680,74 @@ namespace Echo
             0.0f,
             m_aspectRatio
         );
+
+        const float clientWidth =
+            static_cast<float>(
+                m_window.GetClientWidth()
+                );
+
+        const float clientHeight =
+            static_cast<float>(
+                m_window.GetClientHeight()
+                );
+
+        const wchar_t* screenTitle =
+            L"Placeholder";
+
+        switch (m_applicationState)
+        {
+        case ApplicationState::HostGame:
+            screenTitle = L"Host Game";
+            break;
+
+        case ApplicationState::JoinGame:
+            screenTitle = L"Join Game";
+            break;
+
+        case ApplicationState::Settings:
+            screenTitle = L"Settings";
+            break;
+
+        default:
+            break;
+        }
+
+        m_textRenderer.Begin();
+
+        m_textRenderer.Draw(
+            screenTitle,
+            D2D1_RECT_F{
+                0.0f,
+                clientHeight * 0.30f,
+                clientWidth,
+                clientHeight * 0.46f
+            },
+            TextStyle::Title
+        );
+
+        m_textRenderer.Draw(
+            L"This screen will be implemented later",
+            D2D1_RECT_F{
+                0.0f,
+                clientHeight * 0.46f,
+                clientWidth,
+                clientHeight * 0.58f
+            },
+            TextStyle::MenuItem
+        );
+
+        m_textRenderer.Draw(
+            L"Escape - Back",
+            D2D1_RECT_F{
+                0.0f,
+                clientHeight - 55.0f,
+                clientWidth,
+                clientHeight - 10.0f
+            },
+            TextStyle::Hint
+        );
+
+        m_textRenderer.End();
     }
 
     void Application::UpdateMenuTitle()
@@ -453,7 +786,7 @@ namespace Echo
             }
 
             title +=
-                L" | Up/Down + Enter";
+                L" | W/S or Up/Down + Enter";
 
             m_window.SetTitle(title);
 

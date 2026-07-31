@@ -1,7 +1,10 @@
 #include "Graphics/GraphicsDevice.h"
 
+#include <d2d1_1helper.h>
+
 #include <stdexcept>
 
+#pragma comment(lib, "d2d1.lib")
 #pragma comment(lib, "d3d11.lib")
 #pragma comment(lib, "dxgi.lib")
 
@@ -36,7 +39,7 @@ namespace Echo
             height;
 
         swapChainDescription.BufferDesc.Format =
-            DXGI_FORMAT_R8G8B8A8_UNORM;
+            DXGI_FORMAT_B8G8R8A8_UNORM;
 
         swapChainDescription.BufferDesc.RefreshRate.Numerator =
             0;
@@ -117,7 +120,51 @@ namespace Echo
             "Failed to create Direct3D device and swap chain."
         );
 
-        CreateRenderTarget(width, height);
+        D2D1_FACTORY_OPTIONS
+            factoryOptions{};
+
+        ThrowIfFailed(
+            D2D1CreateFactory(
+                D2D1_FACTORY_TYPE_SINGLE_THREADED,
+                __uuidof(ID2D1Factory1),
+                &factoryOptions,
+                reinterpret_cast<void**>(
+                    m_d2dFactory.GetAddressOf()
+                    )
+            ),
+            "Failed to create Direct2D factory."
+        );
+
+        Microsoft::WRL::ComPtr<IDXGIDevice>
+            dxgiDevice;
+
+        ThrowIfFailed(
+            m_device.As(
+                &dxgiDevice
+            ),
+            "Failed to get DXGI device."
+        );
+
+        ThrowIfFailed(
+            m_d2dFactory->CreateDevice(
+                dxgiDevice.Get(),
+                m_d2dDevice.GetAddressOf()
+            ),
+            "Failed to create Direct2D device."
+        );
+
+        ThrowIfFailed(
+            m_d2dDevice->CreateDeviceContext(
+                D2D1_DEVICE_CONTEXT_OPTIONS_NONE,
+                m_d2dContext.GetAddressOf()
+            ),
+            "Failed to create Direct2D device context."
+        );
+
+        CreateRenderTarget(
+            width,
+            height
+        );
     }
 
     void GraphicsDevice::CreateRenderTarget(
@@ -145,6 +192,42 @@ namespace Echo
                 m_renderTargetView.GetAddressOf()
             ),
             "Failed to create render target view."
+        );
+
+        Microsoft::WRL::ComPtr<IDXGISurface>
+            backBufferSurface;
+
+        ThrowIfFailed(
+            backBuffer.As(
+                &backBufferSurface
+            ),
+            "Failed to get DXGI back buffer surface."
+        );
+
+        const D2D1_BITMAP_PROPERTIES1
+            bitmapProperties =
+            D2D1::BitmapProperties1(
+                D2D1_BITMAP_OPTIONS_TARGET |
+                D2D1_BITMAP_OPTIONS_CANNOT_DRAW,
+                D2D1::PixelFormat(
+                    DXGI_FORMAT_B8G8R8A8_UNORM,
+                    D2D1_ALPHA_MODE_IGNORE
+                ),
+                96.0f,
+                96.0f
+            );
+
+        ThrowIfFailed(
+            m_d2dContext->CreateBitmapFromDxgiSurface(
+                backBufferSurface.Get(),
+                &bitmapProperties,
+                m_d2dTargetBitmap.GetAddressOf()
+            ),
+            "Failed to create Direct2D target bitmap."
+        );
+
+        m_d2dContext->SetTarget(
+            m_d2dTargetBitmap.Get()
         );
 
         D3D11_VIEWPORT viewport{};
@@ -175,6 +258,12 @@ namespace Echo
         {
             return;
         }
+
+        m_d2dContext->SetTarget(
+            nullptr
+        );
+
+        m_d2dTargetBitmap.Reset();
 
         // Unbind the old render target from the pipeline.
         m_context->OMSetRenderTargets(
@@ -253,5 +342,11 @@ namespace Echo
         GraphicsDevice::GetContext() const noexcept
     {
         return m_context.Get();
+    }
+
+    ID2D1DeviceContext*
+        GraphicsDevice::GetOverlayContext() const noexcept
+    {
+        return m_d2dContext.Get();
     }
 }

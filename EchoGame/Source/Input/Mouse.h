@@ -9,11 +9,18 @@ namespace Echo
     public:
         int GetX() const noexcept;
         int GetY() const noexcept;
-        bool IsLeftButtonDown() const noexcept;
+
         bool IsInsideWindow() const noexcept;
+        bool IsLeftButtonDown() const noexcept;
+
+        bool WasMoved() const noexcept;
+
+        bool WasLeftButtonPressed()
+            const noexcept;
+
+        void EndFrame() noexcept;
 
     private:
-        // Only Window may change mouse state.
         friend class Window;
 
         void SetPosition(
@@ -29,10 +36,17 @@ namespace Echo
             bool isDown
         ) noexcept;
 
+        void Reset() noexcept;
+
         int m_x = 0;
         int m_y = 0;
 
         bool m_isInsideWindow = false;
         bool m_isLeftButtonDown = false;
+
+        bool m_movedThisFrame = false;
+
+        bool m_leftButtonPressedThisFrame =
+            false;
     };
 }

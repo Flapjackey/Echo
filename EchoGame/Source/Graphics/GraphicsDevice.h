@@ -2,6 +2,7 @@
 
 #include "Platform/Windows/WindowsCommon.h"
 
+#include <d2d1_1.h>
 #include <d3d11.h>
 #include <dxgi.h>
 #include <wrl/client.h>
@@ -19,8 +20,13 @@ namespace Echo
 
         ~GraphicsDevice() = default;
 
-        GraphicsDevice(const GraphicsDevice&) = delete;
-        GraphicsDevice& operator=(const GraphicsDevice&) = delete;
+        GraphicsDevice(
+            const GraphicsDevice&
+        ) = delete;
+
+        GraphicsDevice& operator=(
+            const GraphicsDevice&
+            ) = delete;
 
         void BeginFrame(
             float red,
@@ -35,9 +41,14 @@ namespace Echo
             unsigned int height
         );
 
-        ID3D11Device* GetDevice() const noexcept;
+        ID3D11Device*
+            GetDevice() const noexcept;
 
-        ID3D11DeviceContext* GetContext() const noexcept;
+        ID3D11DeviceContext*
+            GetContext() const noexcept;
+
+        ID2D1DeviceContext*
+            GetOverlayContext() const noexcept;
 
     private:
         void CreateRenderTarget(
@@ -54,7 +65,21 @@ namespace Echo
         Microsoft::WRL::ComPtr<IDXGISwapChain>
             m_swapChain;
 
-        Microsoft::WRL::ComPtr<ID3D11RenderTargetView>
+        Microsoft::WRL::ComPtr<
+            ID3D11RenderTargetView>
             m_renderTargetView;
+
+        Microsoft::WRL::ComPtr<ID2D1Factory1>
+            m_d2dFactory;
+
+        Microsoft::WRL::ComPtr<ID2D1Device>
+            m_d2dDevice;
+
+        Microsoft::WRL::ComPtr<
+            ID2D1DeviceContext>
+            m_d2dContext;
+
+        Microsoft::WRL::ComPtr<ID2D1Bitmap1>
+            m_d2dTargetBitmap;
     };
 }
