@@ -129,13 +129,16 @@
   <ItemGroup>
     <ClCompile Include="Source\Core\Application.cpp" />
     <ClCompile Include="Source\Core\Clock.cpp" />
+    <ClCompile Include="Source\Graphics\GraphicsDevice.cpp" />
     <ClCompile Include="Source\main.cpp" />
     <ClCompile Include="Source\Platform\Windows\Window.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Source\Core\Application.h" />
     <ClInclude Include="Source\Core\Clock.h" />
+    <ClInclude Include="Source\Graphics\GraphicsDevice.h" />
     <ClInclude Include="Source\Platform\Windows\Window.h" />
+    <ClInclude Include="Source\Platform\Windows\WindowsCommon.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -1,25 +1,36 @@
 #include "Core/Application.h"
 
 #include <algorithm>
-#include <chrono>
 #include <iomanip>
 #include <sstream>
-#include <thread>
+
+namespace
+{
+    constexpr unsigned int ClientWidth =
+        1280;
+
+    constexpr unsigned int ClientHeight =
+        720;
+}
 
 namespace Echo
 {
     Application::Application()
         : m_window(
-            1280,
-            720,
+            ClientWidth,
+            ClientHeight,
             L"EchoGame"
+        ),
+        m_graphics(
+            m_window.GetHandle(),
+            ClientWidth,
+            ClientHeight
         )
     {
     }
 
     int Application::Run()
     {
-        using namespace std::chrono_literals;
 
         constexpr double fixedDeltaTime =
             1.0 / 60.0;
@@ -51,11 +62,19 @@ namespace Echo
             }
 
             Update(frameTime);
+
+            m_graphics.BeginFrame(
+                0.02f,
+                0.04f,
+                0.08f
+            );
+
+            m_graphics.EndFrame();
+
             UpdateStatistics(frameTime);
 
             // Temporary protection from using an entire CPU core.
             // Later vertical synchronization will replace this.
-            std::this_thread::sleep_for(1ms);
         }
 
         return 0;

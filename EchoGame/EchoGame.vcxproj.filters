@@ -27,6 +27,9 @@
     <ClCompile Include="Source\main.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
+    <ClCompile Include="Source\Graphics\GraphicsDevice.cpp">
+      <Filter>Исходные файлы</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Source\Core\Application.h">
@@ -36,6 +39,12 @@
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
     <ClInclude Include="Source\Platform\Windows\Window.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Graphics\GraphicsDevice.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Platform\Windows\WindowsCommon.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
   </ItemGroup>

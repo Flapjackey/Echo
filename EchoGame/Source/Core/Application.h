@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Core/Clock.h"
+#include "Graphics/GraphicsDevice.h"
 #include "Platform/Windows/Window.h"
 
 namespace Echo
@@ -18,6 +19,7 @@ namespace Echo
         void UpdateStatistics(double deltaTime);
 
         Window m_window;
+        GraphicsDevice m_graphics;
         Clock m_clock;
 
         double m_statisticsTimer = 0.0;
