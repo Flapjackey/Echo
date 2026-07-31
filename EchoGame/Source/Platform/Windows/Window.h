@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Platform/Windows/WindowsCommon.h"
-
+#include "Input/Keyboard.h"
 #include <string>
 
 namespace Echo
@@ -10,6 +10,7 @@ namespace Echo
     {
     public:
         Window(
+            Keyboard& keyboard,
             int clientWidth,
             int clientHeight,
             const wchar_t* title
@@ -35,6 +36,8 @@ namespace Echo
         ) noexcept;
 
     private:
+        Keyboard& m_keyboard;
+
         LRESULT HandleMessage(
             HWND window,
             UINT message,

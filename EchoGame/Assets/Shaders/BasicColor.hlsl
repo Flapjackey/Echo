@@ -43,13 +43,16 @@ PixelInput VSMain(VertexInput input)
 
     // Correct horizontal scale so a square remains square
     // on a widescreen window.
-    rotatedPosition.x /= aspectRatio;
+    float2 worldPosition =
+    rotatedPosition + objectPosition;
 
-    output.position = float4(
-        rotatedPosition + objectPosition,
-        0.0f,
-        1.0f
-    );
+worldPosition.x /= aspectRatio;
+
+output.position = float4(
+    worldPosition,
+    0.0f,
+    1.0f
+);
 
     output.color = input.color;
 
