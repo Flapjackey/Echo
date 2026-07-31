@@ -176,15 +176,14 @@ namespace Echo
             return;
         }
 
-        // The old back buffer cannot be resized
-        // while it is bound to the rendering pipeline.
+        // Unbind the old render target from the pipeline.
         m_context->OMSetRenderTargets(
             0,
             nullptr,
             nullptr
         );
 
-        // Release our reference to the old back buffer view.
+        // Release our reference to the old back buffer.
         m_renderTargetView.Reset();
 
         ThrowIfFailed(
@@ -198,7 +197,6 @@ namespace Echo
             "Failed to resize Direct3D swap chain."
         );
 
-        // Acquire the new back buffer and recreate its view.
         CreateRenderTarget(
             width,
             height

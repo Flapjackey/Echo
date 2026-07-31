@@ -30,6 +30,11 @@ namespace Echo
 
         void EndFrame();
 
+        void Resize(
+            unsigned int width,
+            unsigned int height
+        );
+
     private:
         void CreateRenderTarget(
             unsigned int width,
