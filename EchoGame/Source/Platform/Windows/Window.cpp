@@ -32,6 +32,22 @@ namespace Echo
                 key = Key::D;
                 return true;
 
+            case VK_UP:
+                key = Key::Up;
+                return true;
+
+            case VK_DOWN:
+                key = Key::Down;
+                return true;
+
+            case VK_RETURN:
+                key = Key::Enter;
+                return true;
+
+            case VK_ESCAPE:
+                key = Key::Escape;
+                return true;
+
             default:
                 return false;
             }

@@ -2,86 +2,72 @@
 
 #include <cmath>
 
+namespace
+{
+    constexpr float DirectionEpsilon =
+        0.000001f;
+}
+
 namespace Echo
 {
-    void Player::UpdateMovement(
-        const Keyboard& keyboard,
+    void Player::Update(
+        const PlayerCommand& command,
         double deltaTime
     ) noexcept
     {
-        float directionX = 0.0f;
-        float directionY = 0.0f;
+        float movementX =
+            command.movementX;
 
-        if (keyboard.IsDown(Key::A))
+        float movementY =
+            command.movementY;
+
+        const float movementLengthSquared =
+            movementX * movementX +
+            movementY * movementY;
+
+        // Limit movement length to one.
+        // This prevents faster diagonal movement and
+        // protects against invalid input commands.
+        if (movementLengthSquared > 1.0f)
         {
-            directionX -= 1.0f;
-        }
+            const float inverseLength =
+                1.0f /
+                std::sqrt(
+                    movementLengthSquared
+                );
 
-        if (keyboard.IsDown(Key::D))
-        {
-            directionX += 1.0f;
-        }
-
-        if (keyboard.IsDown(Key::W))
-        {
-            directionY += 1.0f;
-        }
-
-        if (keyboard.IsDown(Key::S))
-        {
-            directionY -= 1.0f;
-        }
-
-        // Prevent faster diagonal movement.
-        if (directionX != 0.0f &&
-            directionY != 0.0f)
-        {
-            constexpr float diagonalScale =
-                0.70710678f;
-
-            directionX *= diagonalScale;
-            directionY *= diagonalScale;
+            movementX *= inverseLength;
+            movementY *= inverseLength;
         }
 
         const float fixedDeltaTime =
-            static_cast<float>(deltaTime);
+            static_cast<float>(
+                deltaTime
+                );
 
         m_positionX +=
-            directionX *
+            movementX *
             m_movementSpeed *
             fixedDeltaTime;
 
         m_positionY +=
-            directionY *
+            movementY *
             m_movementSpeed *
             fixedDeltaTime;
-    }
 
-    void Player::AimAt(
-        float worldX,
-        float worldY
-    ) noexcept
-    {
-        const float directionX =
-            worldX - m_positionX;
+        const float aimLengthSquared =
+            command.aimX * command.aimX +
+            command.aimY * command.aimY;
 
-        const float directionY =
-            worldY - m_positionY;
-
-        const float distanceSquared =
-            directionX * directionX +
-            directionY * directionY;
-
-        if (distanceSquared < 0.000001f)
+        if (aimLengthSquared >
+            DirectionEpsilon)
         {
-            return;
+            m_rotation =
+                std::atan2(
+                    command.aimY,
+                    command.aimX
+                );
         }
-
-        m_rotation =
-            std::atan2(
-                directionY,
-                directionX
-            );
     }
 
     float Player::GetPositionX() const noexcept
@@ -101,12 +87,16 @@ namespace Echo
 
     float Player::GetForwardX() const noexcept
     {
-        return std::cos(m_rotation);
+        return std::cos(
+            m_rotation
+        );
     }
 
     float Player::GetForwardY() const noexcept
     {
-        return std::sin(m_rotation);
+        return std::sin(
+            m_rotation
+        );
     }
 
     float Player::GetWidth() const noexcept

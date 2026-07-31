@@ -1,6 +1,7 @@
 #include "Core/Application.h"
 
 #include <algorithm>
+#include <cmath>
 #include <iomanip>
 #include <sstream>
 
@@ -47,7 +48,10 @@ namespace Echo
 
         m_clock.Reset();
 
-        while (m_window.ProcessMessages())
+        UpdateMenuTitle();
+
+        while (!m_exitRequested &&
+            m_window.ProcessMessages())
         {
             unsigned int resizedWidth = 0;
             unsigned int resizedHeight = 0;
@@ -73,46 +77,89 @@ namespace Echo
                 maximumFrameTime
             );
 
-            accumulatedTime += frameTime;
+            HandleApplicationInput();
 
-            // Run the game simulation at 60 updates per second.
-            while (accumulatedTime >= fixedDeltaTime)
+            if (m_applicationState ==
+                ApplicationState::LocalGame)
             {
-                FixedUpdate(fixedDeltaTime);
+                const PlayerCommand playerCommand =
+                    BuildLocalPlayerCommand();
 
-                accumulatedTime -= fixedDeltaTime;
+                accumulatedTime +=
+                    frameTime;
+
+                while (accumulatedTime >=
+                    fixedDeltaTime)
+                {
+                    FixedUpdate(
+                        playerCommand,
+                        fixedDeltaTime
+                    );
+
+                    accumulatedTime -=
+                        fixedDeltaTime;
+                }
+            }
+            else
+            {
+                // Prevent the menu time from accumulating and
+                // producing many updates when the game starts.
+                accumulatedTime = 0.0;
             }
 
-            Update(frameTime);
-
-            m_graphics.BeginFrame(
-                0.02f,
-                0.04f,
-                0.08f
-            );
-
-            m_quadRenderer.Draw(
-                m_player.GetPositionX(),
-                m_player.GetPositionY(),
-                m_player.GetWidth(),
-                m_player.GetHeight(),
-                m_player.GetRotation(),
-                m_aspectRatio
-            );
-
-            for (const Projectile& projectile : m_projectiles)
+            switch (m_applicationState)
             {
-                m_quadRenderer.Draw(
-                    projectile.GetPositionX(),
-                    projectile.GetPositionY(),
-                    projectile.GetWidth(),
-                    projectile.GetHeight(),
-                    projectile.GetRotation(),
-                    m_aspectRatio
+            case ApplicationState::MainMenu:
+            {
+                m_graphics.BeginFrame(
+                    0.03f,
+                    0.03f,
+                    0.06f
                 );
+
+                RenderMainMenu();
+
+                break;
+            }
+
+            case ApplicationState::LocalGame:
+            {
+                m_graphics.BeginFrame(
+                    0.02f,
+                    0.04f,
+                    0.08f
+                );
+
+                RenderGameplay();
+
+                break;
+            }
+
+            case ApplicationState::HostGame:
+            case ApplicationState::JoinGame:
+            case ApplicationState::Settings:
+            {
+                m_graphics.BeginFrame(
+                    0.05f,
+                    0.03f,
+                    0.05f
+                );
+
+                RenderPlaceholder();
+
+                break;
+            }
             }
 
             m_graphics.EndFrame();
+
+            if (m_applicationState ==
+                ApplicationState::LocalGame)
+            {
+                UpdateStatistics(frameTime);
+            }
+
+            m_keyboard.EndFrame();
 
             UpdateStatistics(frameTime);
         }
@@ -121,99 +168,380 @@ namespace Echo
     }
 
     void Application::FixedUpdate(
+        const PlayerCommand& playerCommand,
         double deltaTime
     )
     {
-        m_player.UpdateMovement(
-            m_keyboard,
+        m_gameSession.Update(
+            playerCommand,
             deltaTime
-        );
-
-        const float fixedDeltaTime =
-            static_cast<float>(deltaTime);
-
-        if (m_fireCooldown > 0.0f)
-        {
-            m_fireCooldown -=
-                fixedDeltaTime;
-        }
-
-        if (m_mouse.IsLeftButtonDown())
-        {
-            TryFireProjectile();
-        }
-
-        for (Projectile& projectile : m_projectiles)
-        {
-            projectile.Update(deltaTime);
-        }
-
-        const auto firstExpiredProjectile =
-            std::remove_if(
-                m_projectiles.begin(),
-                m_projectiles.end(),
-                [](const Projectile& projectile)
-                {
-                    return !projectile.IsAlive();
-                }
-            );
-
-        m_projectiles.erase(
-            firstExpiredProjectile,
-            m_projectiles.end()
         );
     }
 
-    void Application::TryFireProjectile()
+    void Application::HandleApplicationInput()
     {
-        if (m_fireCooldown > 0.0f)
+        switch (m_applicationState)
+        {
+        case ApplicationState::MainMenu:
+        {
+            HandleMainMenuInput();
+            break;
+        }
+
+        case ApplicationState::LocalGame:
+        {
+            if (m_keyboard.WasPressed(
+                Key::Escape))
+            {
+                EnterState(
+                    ApplicationState::MainMenu
+                );
+            }
+
+            break;
+        }
+
+        case ApplicationState::HostGame:
+        case ApplicationState::JoinGame:
+        case ApplicationState::Settings:
+        {
+            if (m_keyboard.WasPressed(
+                Key::Escape))
+            {
+                EnterState(
+                    ApplicationState::MainMenu
+                );
+            }
+
+            break;
+        }
+        }
+    }
+
+    void Application::HandleMainMenuInput()
+    {
+        constexpr std::size_t itemCount =
+            static_cast<std::size_t>(
+                MainMenuItem::Count
+                );
+
+        std::size_t selectedIndex =
+            static_cast<std::size_t>(
+                m_selectedMenuItem
+                );
+
+        bool selectionChanged = false;
+
+        if (m_keyboard.WasPressed(Key::Up))
+        {
+            selectedIndex =
+                (selectedIndex +
+                    itemCount -
+                    1) %
+                itemCount;
+
+            selectionChanged = true;
+        }
+
+        if (m_keyboard.WasPressed(Key::Down))
+        {
+            selectedIndex =
+                (selectedIndex + 1) %
+                itemCount;
+
+            selectionChanged = true;
+        }
+
+        m_selectedMenuItem =
+            static_cast<MainMenuItem>(
+                selectedIndex
+                );
+
+        if (selectionChanged)
+        {
+            UpdateMenuTitle();
+        }
+
+        if (!m_keyboard.WasPressed(
+            Key::Enter))
         {
             return;
         }
 
-        constexpr float fireInterval =
-            0.15f;
+        switch (m_selectedMenuItem)
+        {
+        case MainMenuItem::LocalGame:
+        {
+            m_gameSession.Reset();
 
-        const float forwardX =
-            m_player.GetForwardX();
+            EnterState(
+                ApplicationState::LocalGame
+            );
 
-        const float forwardY =
-            m_player.GetForwardY();
+            break;
+        }
 
-        constexpr float spawnDistance =
-            0.32f;
+        case MainMenuItem::HostGame:
+        {
+            EnterState(
+                ApplicationState::HostGame
+            );
 
-        const float spawnX =
-            m_player.GetPositionX() +
-            forwardX *
-            spawnDistance;
+            break;
+        }
 
-        const float spawnY =
-            m_player.GetPositionY() +
-            forwardY *
-            spawnDistance;
+        case MainMenuItem::JoinGame:
+        {
+            EnterState(
+                ApplicationState::JoinGame
+            );
 
-        m_projectiles.emplace_back(
-            spawnX,
-            spawnY,
-            forwardX,
-            forwardY
-        );
+            break;
+        }
 
-        m_fireCooldown =
-            fireInterval;
+        case MainMenuItem::Settings:
+        {
+            EnterState(
+                ApplicationState::Settings
+            );
+
+            break;
+        }
+
+        case MainMenuItem::Exit:
+        {
+            m_exitRequested = true;
+            break;
+        }
+
+        case MainMenuItem::Count:
+        {
+            break;
+        }
+        }
     }
 
-    void Application::Update(
-        double deltaTime
+    void Application::EnterState(
+        ApplicationState state
     )
     {
-        (void)deltaTime;
+        m_applicationState =
+            state;
+
+        m_statisticsTimer = 0.0;
+        m_frameCount = 0;
+
+        UpdateMenuTitle();
+    }
+
+    void Application::RenderGameplay()
+    {
+        const Player& player =
+            m_gameSession.GetPlayer();
+
+        m_quadRenderer.Draw(
+            player.GetPositionX(),
+            player.GetPositionY(),
+            player.GetWidth(),
+            player.GetHeight(),
+            player.GetRotation(),
+            m_aspectRatio
+        );
+
+        for (const Projectile& projectile :
+            m_gameSession.GetProjectiles())
+        {
+            m_quadRenderer.Draw(
+                projectile.GetPositionX(),
+                projectile.GetPositionY(),
+                projectile.GetWidth(),
+                projectile.GetHeight(),
+                projectile.GetRotation(),
+                m_aspectRatio
+            );
+        }
+    }
+
+    void Application::RenderMainMenu()
+    {
+        constexpr std::size_t itemCount =
+            static_cast<std::size_t>(
+                MainMenuItem::Count
+                );
+
+        for (std::size_t index = 0;
+            index < itemCount;
+            ++index)
+        {
+            const bool isSelected =
+                index ==
+                static_cast<std::size_t>(
+                    m_selectedMenuItem
+                    );
+
+            const float positionY =
+                0.56f -
+                static_cast<float>(index) *
+                0.28f;
+
+            const float width =
+                isSelected
+                ? 1.25f
+                : 0.90f;
+
+            const float height =
+                isSelected
+                ? 0.18f
+                : 0.12f;
+
+            m_quadRenderer.Draw(
+                0.0f,
+                positionY,
+                width,
+                height,
+                0.0f,
+                m_aspectRatio
+            );
+        }
+    }
+
+    void Application::RenderPlaceholder()
+    {
+        m_quadRenderer.Draw(
+            0.0f,
+            0.0f,
+            0.80f,
+            0.30f,
+            0.0f,
+            m_aspectRatio
+        );
+    }
+
+    void Application::UpdateMenuTitle()
+    {
+        switch (m_applicationState)
+        {
+        case ApplicationState::MainMenu:
+        {
+            std::wstring title =
+                L"Echo | Main Menu | Selected: ";
+
+            switch (m_selectedMenuItem)
+            {
+            case MainMenuItem::LocalGame:
+                title += L"Local Game";
+                break;
+
+            case MainMenuItem::HostGame:
+                title += L"Host Game";
+                break;
+
+            case MainMenuItem::JoinGame:
+                title += L"Join Game";
+                break;
+
+            case MainMenuItem::Settings:
+                title += L"Settings";
+                break;
+
+            case MainMenuItem::Exit:
+                title += L"Exit";
+                break;
+
+            case MainMenuItem::Count:
+                break;
+            }
+
+            title +=
+                L" | Up/Down + Enter";
+
+            m_window.SetTitle(title);
+
+            break;
+        }
+
+        case ApplicationState::LocalGame:
+        {
+            m_window.SetTitle(
+                L"Echo | Local Game | Escape: Menu"
+            );
+
+            break;
+        }
+
+        case ApplicationState::HostGame:
+        {
+            m_window.SetTitle(
+                L"Echo | Host Game placeholder | Escape: Back"
+            );
+
+            break;
+        }
+
+        case ApplicationState::JoinGame:
+        {
+            m_window.SetTitle(
+                L"Echo | Join Game placeholder | Escape: Back"
+            );
+
+            break;
+        }
+
+        case ApplicationState::Settings:
+        {
+            m_window.SetTitle(
+                L"Echo | Settings placeholder | Escape: Back"
+            );
+
+            break;
+        }
+        }
+    }
+
+    PlayerCommand
+        Application::BuildLocalPlayerCommand()
+        const noexcept
+    {
+        PlayerCommand command{};
+
+        if (m_keyboard.IsDown(Key::A))
+        {
+            command.movementX -= 1.0f;
+        }
+
+        if (m_keyboard.IsDown(Key::D))
+        {
+            command.movementX += 1.0f;
+        }
+
+        if (m_keyboard.IsDown(Key::W))
+        {
+            command.movementY += 1.0f;
+        }
+
+        if (m_keyboard.IsDown(Key::S))
+        {
+            command.movementY -= 1.0f;
+        }
+
+        const Player& player =
+            m_gameSession.GetPlayer();
+
+        // Preserve the current aim direction when the
+        // cursor is outside the client area.
+        command.aimX =
+            player.GetForwardX();
+
+        command.aimY =
+            player.GetForwardY();
 
         if (!m_mouse.IsInsideWindow())
         {
-            return;
+            return command;
         }
+
+        command.fire =
+            m_mouse.IsLeftButtonDown();
 
         const float clientWidth =
             static_cast<float>(
@@ -228,10 +556,11 @@ namespace Echo
         if (clientWidth <= 0.0f ||
             clientHeight <= 0.0f)
         {
-            return;
+            return command;
         }
 
-        // Convert mouse X from pixels to range [-1, 1].
+        // Convert pixel coordinates to normalized
+        // device coordinates.
         const float normalizedMouseX =
             2.0f *
             static_cast<float>(
@@ -240,7 +569,8 @@ namespace Echo
             clientWidth -
             1.0f;
 
-        // Windows Y grows downward, but game Y grows upward.
+        // Windows Y grows downward.
+        // World Y grows upward.
         const float normalizedMouseY =
             1.0f -
             2.0f *
@@ -249,8 +579,6 @@ namespace Echo
                 ) /
             clientHeight;
 
-        // The shader divides world X by aspectRatio.
-        // Reverse that conversion for the mouse.
         const float mouseWorldX =
             normalizedMouseX *
             m_aspectRatio;
@@ -258,10 +586,42 @@ namespace Echo
         const float mouseWorldY =
             normalizedMouseY;
 
-        m_player.AimAt(
-            mouseWorldX,
-            mouseWorldY
-        );
+        const float directionX =
+            mouseWorldX -
+            player.GetPositionX();
+
+        const float directionY =
+            mouseWorldY -
+            player.GetPositionY();
+
+        const float directionLengthSquared =
+            directionX * directionX +
+            directionY * directionY;
+
+        constexpr float DirectionEpsilon =
+            0.000001f;
+
+        if (directionLengthSquared <=
+            DirectionEpsilon)
+        {
+            return command;
+        }
+
+        const float inverseLength =
+            1.0f /
+            std::sqrt(
+                directionLengthSquared
+            );
+
+        command.aimX =
+            directionX *
+            inverseLength;
+
+        command.aimY =
+            directionY *
+            inverseLength;
+
+        return command;
     }
 
     void Application::UpdateStatistics(double deltaTime)

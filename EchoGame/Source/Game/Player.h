@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Input/Keyboard.h"
+#include "Game/PlayerCommand.h"
 
 namespace Echo
 {
@@ -9,14 +9,9 @@ namespace Echo
     public:
         Player() = default;
 
-        void UpdateMovement(
-            const Keyboard& keyboard,
+        void Update(
+            const PlayerCommand& command,
             double deltaTime
-        ) noexcept;
-
-        void AimAt(
-            float worldX,
-            float worldY
         ) noexcept;
 
         float GetPositionX() const noexcept;

@@ -16,8 +16,13 @@ namespace Echo
             Key key
         ) const noexcept;
 
+        bool WasPressed(
+            Key key
+        ) const noexcept;
+
+        void EndFrame() noexcept;
+
     private:
-        // Only Window may change the keyboard state.
         friend class Window;
 
         void SetKeyState(
@@ -34,5 +39,8 @@ namespace Echo
 
         std::array<bool, KeyCount>
             m_keyStates{};
+
+        std::array<bool, KeyCount>
+            m_pressedStates{};
     };
 }
