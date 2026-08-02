@@ -15,6 +15,9 @@ namespace Echo
 
     struct NetworkPlayerInput final
     {
+        std::uint32_t inputSequence = 0;
+        std::uint32_t clientTick = 0;
+
         float movementX = 0.0f;
         float movementY = 0.0f;
 
@@ -41,6 +44,11 @@ namespace Echo
 
     struct NetworkWorldSnapshot final
     {
+        std::uint32_t serverTick = 0;
+
+        std::uint32_t
+            lastProcessedInputSequence = 0;
+
         std::array<
             NetworkPlayerState,
             NetworkPlayerCount
@@ -67,7 +75,7 @@ namespace Echo
             ExpectedMagic = 0x4543484F;
 
         static constexpr std::uint16_t
-            ExpectedVersion = 3;
+            ExpectedVersion = 4;
 
         std::uint32_t magic =
             ExpectedMagic;
@@ -78,9 +86,13 @@ namespace Echo
         NetworkPacketType type =
             NetworkPacketType::PlayerInput;
 
+        // Transport-level packet sequence.
         std::uint32_t sequence = 0;
 
         // Player input payload.
+        std::uint32_t inputSequence = 0;
+        std::uint32_t clientTick = 0;
+
         float movementX = 0.0f;
         float movementY = 0.0f;
 
@@ -92,7 +104,13 @@ namespace Echo
 
         std::uint16_t reserved = 0;
 
-        // World snapshot payload.
+        // World snapshot timing payload.
+        std::uint32_t serverTick = 0;
+
+        std::uint32_t
+            lastProcessedInputSequence = 0;
+
+        // World snapshot entity payload.
         std::array<
             NetworkPlayerState,
             NetworkPlayerCount
@@ -107,7 +125,7 @@ namespace Echo
     };
 
     static_assert(
-        sizeof(NetworkPacket) == 444,
+        sizeof(NetworkPacket) == 460,
         "Unexpected NetworkPacket size."
         );
 
@@ -143,6 +161,12 @@ namespace Echo
         packet.sequence =
             sequence;
 
+        packet.inputSequence =
+            input.inputSequence;
+
+        packet.clientTick =
+            input.clientTick;
+
         packet.movementX =
             input.movementX;
 
@@ -175,6 +199,12 @@ namespace Echo
         {
             return false;
         }
+
+        input.inputSequence =
+            packet.inputSequence;
+
+        input.clientTick =
+            packet.clientTick;
 
         input.movementX =
             packet.movementX;
@@ -211,6 +241,12 @@ namespace Echo
         packet.sequence =
             sequence;
 
+        packet.serverTick =
+            snapshot.serverTick;
+
+        packet.lastProcessedInputSequence =
+            snapshot.lastProcessedInputSequence;
+
         packet.players =
             snapshot.players;
 
@@ -241,6 +277,12 @@ namespace Echo
             return false;
         }
 
+        snapshot.serverTick =
+            packet.serverTick;
+
+        snapshot.lastProcessedInputSequence =
+            packet.lastProcessedInputSequence;
+
         snapshot.players =
             packet.players;
 
@@ -251,6 +293,5 @@ namespace Echo
             packet.projectiles;
 
         return true;
-
     }
 }
