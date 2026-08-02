@@ -84,10 +84,26 @@ namespace Echo
             ProjectileMovementSpeed;
     }
 
+    void Projectile::SetRemainingLifetime(
+        float remainingLifetime
+    ) noexcept
+    {
+        m_remainingLifetime =
+            remainingLifetime > 0.0f
+            ? remainingLifetime
+            : 0.0f;
+    }
+
     EntityId Projectile::GetEntityId()
         const noexcept
     {
         return m_entityId;
+    }
+
+    float Projectile::GetRemainingLifetime()
+        const noexcept
+    {
+        return m_remainingLifetime;
     }
 
     bool Projectile::IsAlive() const noexcept

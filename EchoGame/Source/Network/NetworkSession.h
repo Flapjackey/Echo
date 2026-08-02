@@ -79,6 +79,9 @@ namespace Echo
 
         bool IsConnected() const noexcept;
 
+        bool ConsumeConnectionLost()
+            noexcept;
+
         NetworkSessionMode
             GetMode() const noexcept;
 
@@ -161,6 +164,8 @@ namespace Echo
             m_latestReceivedWorldSnapshot{};
 
         bool m_hasReceivedWorldSnapshot = false;
+
+        bool m_connectionLost = false;
 
         std::uint32_t m_nextSequence = 1;
     };

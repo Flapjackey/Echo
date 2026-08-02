@@ -46,6 +46,8 @@ namespace Echo
         float positionY = 0.0f;
 
         float rotation = 0.0f;
+
+        float remainingLifetime = 0.0f;
     };
 
     struct NetworkWorldSnapshot final
@@ -57,6 +59,14 @@ namespace Echo
 
         std::uint32_t
             assignedPlayerIndex = 0;
+
+        EntityId nextProjectileEntityId =
+            1;
+
+        std::array<
+            float,
+            NetworkPlayerCount
+        > fireCooldowns{};
 
         std::array<
             NetworkPlayerState,
@@ -84,7 +94,7 @@ namespace Echo
             ExpectedMagic = 0x4543484F;
 
         static constexpr std::uint16_t
-            ExpectedVersion = 6;
+            ExpectedVersion = 7;
 
         std::uint32_t magic =
             ExpectedMagic;
@@ -122,6 +132,14 @@ namespace Echo
         std::uint32_t
             assignedPlayerIndex = 0;
 
+        EntityId nextProjectileEntityId =
+            1;
+
+        std::array<
+            float,
+            NetworkPlayerCount
+        > fireCooldowns{};
+
         // World snapshot entity payload.
         std::array<
             NetworkPlayerState,
@@ -137,7 +155,7 @@ namespace Echo
     };
 
     static_assert(
-        sizeof(NetworkPacket) == 592,
+        sizeof(NetworkPacket) == 732,
         "Unexpected NetworkPacket size."
         );
 
@@ -262,6 +280,12 @@ namespace Echo
         packet.assignedPlayerIndex =
             snapshot.assignedPlayerIndex;
 
+        packet.nextProjectileEntityId =
+            snapshot.nextProjectileEntityId;
+
+        packet.fireCooldowns =
+            snapshot.fireCooldowns;
+
         packet.players =
             snapshot.players;
 
@@ -282,6 +306,12 @@ namespace Echo
         if (!HasValidNetworkHeader(packet) ||
             packet.type !=
             NetworkPacketType::WorldSnapshot)
+        {
+            return false;
+        }
+
+        if (packet.nextProjectileEntityId ==
+            InvalidEntityId)
         {
             return false;
         }
@@ -339,6 +369,12 @@ namespace Echo
 
         snapshot.assignedPlayerIndex =
             packet.assignedPlayerIndex;
+
+        snapshot.nextProjectileEntityId =
+            packet.nextProjectileEntityId;
+
+        snapshot.fireCooldowns =
+            packet.fireCooldowns;
 
         snapshot.players =
             packet.players;

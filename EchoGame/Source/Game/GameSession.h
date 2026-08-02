@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Core/EntityId.h"
+#include "Game/GameMigrationState.h"
 #include "Game/Player.h"
 #include "Game/PlayerCommand.h"
 #include "Game/Projectile.h"
@@ -62,6 +63,18 @@ namespace Echo
         void AdvanceProjectiles(
             double deltaTime
         ) noexcept;
+
+        EntityId GetNextProjectileEntityId()
+            const noexcept;
+
+        const std::array<
+            float,
+            PlayerCount
+        >& GetFireCooldowns() const noexcept;
+
+        void RestoreMigrationState(
+            const GameMigrationState& state
+        );
 
     private:
         EntityId AllocateProjectileEntityId()

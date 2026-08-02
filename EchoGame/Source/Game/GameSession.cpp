@@ -3,6 +3,7 @@
 #include "Game/World/Levels/TestArena.h"
 
 #include <algorithm>
+#include <cmath>
 #include <utility>
 
 namespace Echo
@@ -178,6 +179,119 @@ namespace Echo
             projectile.Update(
                 deltaTime
             );
+        }
+    }
+
+    EntityId GameSession::
+        GetNextProjectileEntityId()
+        const noexcept
+    {
+        return m_nextProjectileEntityId;
+    }
+
+    const std::array<
+        float,
+        GameSession::PlayerCount
+    >& GameSession::GetFireCooldowns()
+        const noexcept
+    {
+        return m_fireCooldowns;
+    }
+
+    void GameSession::RestoreMigrationState(
+        const GameMigrationState& state
+    )
+    {
+        static_assert(
+            PlayerCount ==
+            GameMigrationPlayerCount,
+            "Game and migration player counts differ."
+            );
+
+        for (std::size_t playerIndex = 0;
+            playerIndex < PlayerCount;
+            ++playerIndex)
+        {
+            const GameMigrationPlayerState&
+                playerState =
+                state.players[playerIndex];
+
+            m_players[playerIndex].
+                SetNetworkState(
+                    playerState.positionX,
+                    playerState.positionY,
+                    playerState.rotation
+                );
+        }
+
+        std::vector<Projectile>
+            restoredProjectiles;
+
+        restoredProjectiles.reserve(
+            state.projectiles.size()
+        );
+
+        for (
+            const GameMigrationProjectileState&
+            projectileState :
+            state.projectiles
+            )
+        {
+            if (projectileState.entityId ==
+                InvalidEntityId ||
+                projectileState.remainingLifetime <=
+                0.0f)
+            {
+                continue;
+            }
+
+            const float directionX =
+                std::cos(
+                    projectileState.rotation
+                );
+
+            const float directionY =
+                std::sin(
+                    projectileState.rotation
+                );
+
+            restoredProjectiles.emplace_back(
+                projectileState.entityId,
+                projectileState.positionX,
+                projectileState.positionY,
+                directionX,
+                directionY
+            );
+
+            restoredProjectiles.back().
+                SetRemainingLifetime(
+                    projectileState.
+                    remainingLifetime
+                );
+        }
+
+        m_projectiles =
+            std::move(
+                restoredProjectiles
+            );
+
+        m_nextProjectileEntityId =
+            state.nextProjectileEntityId !=
+            InvalidEntityId
+            ? state.nextProjectileEntityId
+            : 1;
+
+        for (std::size_t playerIndex = 0;
+            playerIndex < PlayerCount;
+            ++playerIndex)
+        {
+            m_fireCooldowns[playerIndex] =
+                std::max(
+                    state.fireCooldowns[
+                        playerIndex
+                    ],
+                    0.0f
+                );
         }
     }
 

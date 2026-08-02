@@ -157,6 +157,7 @@
     <ClInclude Include="Source\Core\Clock.h" />
     <ClInclude Include="Source\Core\EntityId.h" />
     <ClInclude Include="Source\Core\GameSettings.h" />
+    <ClInclude Include="Source\Game\GameMigrationState.h" />
     <ClInclude Include="Source\Game\GameSession.h" />
     <ClInclude Include="Source\Game\Player.h" />
     <ClInclude Include="Source\Game\PlayerCommand.h" />
