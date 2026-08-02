@@ -61,6 +61,10 @@ namespace Echo
             const NetworkWorldSnapshot& snapshot
         );
 
+        void UpdateRemoteWorldPresentation(
+            double deltaTime
+        ) noexcept;
+
         void ResetNetworkGameState()
             noexcept;
 
@@ -115,6 +119,15 @@ namespace Echo
         std::uint32_t
             m_latestReceivedServerTick =
             0;
+
+        NetworkWorldSnapshot
+            m_remoteInterpolationStart{};
+
+        NetworkWorldSnapshot
+            m_remoteInterpolationTarget{};
+
+        double m_remoteInterpolationElapsed =
+            0.0;
 
         bool m_hasReceivedWorldSnapshot =
             false;

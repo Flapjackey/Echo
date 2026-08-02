@@ -34,6 +34,56 @@ namespace
     constexpr double
         RemoteInputTimeout =
         0.25;
+
+    constexpr double
+        RemotePlayerInterpolationDuration =
+        1.0 / 30.0;
+
+    constexpr float Pi =
+        3.14159265358979323846f;
+
+    constexpr float TwoPi =
+        Pi * 2.0f;
+
+    float InterpolateFloat(
+        float start,
+        float target,
+        float amount
+    ) noexcept
+    {
+        return
+            start +
+            (target - start) *
+            amount;
+    }
+
+    float InterpolateAngle(
+        float start,
+        float target,
+        float amount
+    ) noexcept
+    {
+        float difference =
+            target -
+            start;
+
+        while (difference > Pi)
+        {
+            difference -=
+                TwoPi;
+        }
+
+        while (difference < -Pi)
+        {
+            difference +=
+                TwoPi;
+        }
+
+        return
+            start +
+            difference *
+            amount;
+    }
 }
 
 namespace Echo
@@ -149,15 +199,22 @@ namespace Echo
                     ApplyWorldSnapshot(
                         receivedSnapshot
                     );
-
-                    m_hasReceivedWorldSnapshot =
-                        true;
                 }
             }
             else
             {
                 m_playerInputSendAccumulator =
                     0.0;
+            }
+
+            if (m_applicationState ==
+                ApplicationState::JoinGame &&
+                m_networkSession.IsConnected() &&
+                m_hasReceivedWorldSnapshot)
+            {
+                UpdateRemoteWorldPresentation(
+                    frameTime
+                );
             }
 
             if (m_applicationState ==
@@ -1206,6 +1263,9 @@ namespace Echo
                     projectileIndex
                 ];
 
+            projectileState.entityId =
+                projectile.GetEntityId();
+
             projectileState.positionX =
                 projectile.GetPositionX();
 
@@ -1235,20 +1295,71 @@ namespace Echo
         m_lastAcknowledgedInputSequence =
             snapshot.lastProcessedInputSequence;
 
-        for (std::size_t playerIndex = 0;
-            playerIndex < NetworkPlayerCount;
-            ++playerIndex)
+        if (!m_hasReceivedWorldSnapshot)
         {
-            const NetworkPlayerState&
-                playerState =
-                snapshot.players[playerIndex];
+            m_remoteInterpolationStart =
+                snapshot;
 
-            m_gameSession.SetPlayerNetworkState(
-                playerIndex,
-                playerState.positionX,
-                playerState.positionY,
-                playerState.rotation
-            );
+            m_remoteInterpolationTarget =
+                snapshot;
+
+            m_remoteInterpolationElapsed =
+                RemotePlayerInterpolationDuration;
+
+            for (std::size_t playerIndex = 0;
+                playerIndex < NetworkPlayerCount;
+                ++playerIndex)
+            {
+                const NetworkPlayerState&
+                    playerState =
+                    snapshot.players[
+                        playerIndex
+                    ];
+
+                m_gameSession.SetPlayerNetworkState(
+                    playerIndex,
+                    playerState.positionX,
+                    playerState.positionY,
+                    playerState.rotation
+                );
+            }
+
+            m_hasReceivedWorldSnapshot =
+                true;
+        }
+        else
+        {
+            // Begin interpolation from the positions
+            // currently displayed on the client.
+            for (std::size_t playerIndex = 0;
+                playerIndex < NetworkPlayerCount;
+                ++playerIndex)
+            {
+                const Player& player =
+                    m_gameSession.GetPlayer(
+                        playerIndex
+                    );
+
+                NetworkPlayerState&
+                    startState =
+                    m_remoteInterpolationStart
+                    .players[playerIndex];
+
+                startState.positionX =
+                    player.GetPositionX();
+
+                startState.positionY =
+                    player.GetPositionY();
+
+                startState.rotation =
+                    player.GetRotation();
+            }
+
+            m_remoteInterpolationTarget =
+                snapshot;
+
+            m_remoteInterpolationElapsed =
+                0.0;
         }
 
         const std::size_t projectileCount =
@@ -1259,9 +1370,14 @@ namespace Echo
                 NetworkMaxProjectileCount
             );
 
-        std::vector<Projectile> projectiles;
+        const std::vector<Projectile>&
+            currentProjectiles =
+            m_gameSession.GetProjectiles();
 
-        projectiles.reserve(
+        std::vector<Projectile>
+            synchronizedProjectiles;
+
+        synchronizedProjectiles.reserve(
             projectileCount
         );
 
@@ -1275,6 +1391,40 @@ namespace Echo
                     projectileIndex
                 ];
 
+            const auto existingProjectile =
+                std::find_if(
+                    currentProjectiles.begin(),
+                    currentProjectiles.end(),
+                    [
+                        entityId =
+                            projectileState.entityId
+                    ](
+                        const Projectile& projectile
+                        )
+                    {
+                        return
+                            projectile.GetEntityId() ==
+                            entityId;
+                    }
+                            );
+
+            if (existingProjectile !=
+                currentProjectiles.end())
+            {
+                synchronizedProjectiles.push_back(
+                    *existingProjectile
+                );
+
+                synchronizedProjectiles.back().
+                    SetNetworkState(
+                        projectileState.positionX,
+                        projectileState.positionY,
+                        projectileState.rotation
+                    );
+
+                continue;
+            }
+
             const float directionX =
                 std::cos(
                     projectileState.rotation
@@ -1285,7 +1435,8 @@ namespace Echo
                     projectileState.rotation
                 );
 
-            projectiles.emplace_back(
+            synchronizedProjectiles.emplace_back(
+                projectileState.entityId,
                 projectileState.positionX,
                 projectileState.positionY,
                 directionX,
@@ -1295,8 +1446,87 @@ namespace Echo
 
         m_gameSession.SetProjectiles(
             std::move(
-                projectiles
+                synchronizedProjectiles
             )
+        );
+    }
+
+    void Application::UpdateRemoteWorldPresentation(
+        double deltaTime
+    ) noexcept
+    {
+        if (!m_hasReceivedWorldSnapshot)
+        {
+            return;
+        }
+
+        if (deltaTime > 0.0)
+        {
+            m_remoteInterpolationElapsed +=
+                deltaTime;
+        }
+
+        const double rawAmount =
+            m_remoteInterpolationElapsed /
+            RemotePlayerInterpolationDuration;
+
+        const float interpolationAmount =
+            static_cast<float>(
+                std::clamp(
+                    rawAmount,
+                    0.0,
+                    1.0
+                )
+                );
+
+        for (std::size_t playerIndex = 0;
+            playerIndex < NetworkPlayerCount;
+            ++playerIndex)
+        {
+            const NetworkPlayerState&
+                startState =
+                m_remoteInterpolationStart
+                .players[playerIndex];
+
+            const NetworkPlayerState&
+                targetState =
+                m_remoteInterpolationTarget
+                .players[playerIndex];
+
+            const float positionX =
+                InterpolateFloat(
+                    startState.positionX,
+                    targetState.positionX,
+                    interpolationAmount
+                );
+
+            const float positionY =
+                InterpolateFloat(
+                    startState.positionY,
+                    targetState.positionY,
+                    interpolationAmount
+                );
+
+            const float rotation =
+                InterpolateAngle(
+                    startState.rotation,
+                    targetState.rotation,
+                    interpolationAmount
+                );
+
+            m_gameSession.SetPlayerNetworkState(
+                playerIndex,
+                positionX,
+                positionY,
+                rotation
+            );
+        }
+
+        // Projectiles have constant velocity in the
+        // current prototype, so advance their visual
+        // copies between authoritative snapshots.
+        m_gameSession.AdvanceProjectiles(
+            deltaTime
         );
     }
 
@@ -1329,6 +1559,15 @@ namespace Echo
 
         m_latestReceivedServerTick =
             0;
+
+        m_remoteInterpolationStart =
+            NetworkWorldSnapshot{};
+
+        m_remoteInterpolationTarget =
+            NetworkWorldSnapshot{};
+
+        m_remoteInterpolationElapsed =
+            0.0;
 
         m_hasReceivedWorldSnapshot =
             false;

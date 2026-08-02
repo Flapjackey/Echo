@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Core/EntityId.h"
+
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -37,8 +39,12 @@ namespace Echo
 
     struct NetworkProjectileState final
     {
+        EntityId entityId =
+            InvalidEntityId;
+
         float positionX = 0.0f;
         float positionY = 0.0f;
+
         float rotation = 0.0f;
     };
 
@@ -75,7 +81,7 @@ namespace Echo
             ExpectedMagic = 0x4543484F;
 
         static constexpr std::uint16_t
-            ExpectedVersion = 4;
+            ExpectedVersion = 5;
 
         std::uint32_t magic =
             ExpectedMagic;
@@ -125,7 +131,7 @@ namespace Echo
     };
 
     static_assert(
-        sizeof(NetworkPacket) == 460,
+        sizeof(NetworkPacket) == 588,
         "Unexpected NetworkPacket size."
         );
 
@@ -275,6 +281,37 @@ namespace Echo
             NetworkMaxProjectileCount)
         {
             return false;
+        }
+
+        for (std::size_t projectileIndex = 0;
+            projectileIndex <
+            packet.projectileCount;
+            ++projectileIndex)
+        {
+            const EntityId entityId =
+                packet.projectiles[
+                    projectileIndex
+                ].entityId;
+
+            if (entityId ==
+                InvalidEntityId)
+            {
+                return false;
+            }
+
+            for (std::size_t previousIndex = 0;
+                previousIndex <
+                projectileIndex;
+                ++previousIndex)
+            {
+                if (packet.projectiles[
+                    previousIndex
+                ].entityId ==
+                    entityId)
+                {
+                    return false;
+                }
+            }
         }
 
         snapshot.serverTick =
