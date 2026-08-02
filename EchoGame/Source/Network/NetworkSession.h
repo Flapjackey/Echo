@@ -69,6 +69,12 @@ namespace Echo
             const NetworkWorldSnapshot& snapshot
         ) noexcept;
 
+        void QueueCheckpointApplied()
+            noexcept;
+
+        void QueueResumeGame()
+            noexcept;
+
         bool TryConsumePlayerInput(
             NetworkPlayerInput& input
         ) noexcept;
@@ -77,7 +83,19 @@ namespace Echo
             NetworkWorldSnapshot& snapshot
         ) noexcept;
 
+        bool TryConsumeCheckpointApplied()
+            noexcept;
+
+        bool TryConsumeResumeGame()
+            noexcept;
+
         bool IsConnected() const noexcept;
+
+        bool IsOutgoingIdle()
+            const noexcept;
+
+        bool ConsumeConnected()
+            noexcept;
 
         bool ConsumeConnectionLost()
             noexcept;
@@ -165,7 +183,17 @@ namespace Echo
 
         bool m_hasReceivedWorldSnapshot = false;
 
-        bool m_connectionLost = false;
+        bool m_hasReceivedCheckpointApplied =
+            false;
+
+        bool m_hasReceivedResumeGame =
+            false;
+
+        bool m_connectedEvent =
+            false;
+
+        bool m_connectionLost =
+            false;
 
         std::uint32_t m_nextSequence = 1;
     };

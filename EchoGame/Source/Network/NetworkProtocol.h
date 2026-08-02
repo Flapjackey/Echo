@@ -85,7 +85,10 @@ namespace Echo
         std::uint16_t
     {
         PlayerInput = 1,
-        WorldSnapshot = 2
+        WorldSnapshot = 2,
+
+        CheckpointApplied = 3,
+        ResumeGame = 4
     };
 
     struct NetworkPacket final
@@ -94,7 +97,7 @@ namespace Echo
             ExpectedMagic = 0x4543484F;
 
         static constexpr std::uint16_t
-            ExpectedVersion = 7;
+            ExpectedVersion = 8;
 
         std::uint32_t magic =
             ExpectedMagic;
@@ -214,6 +217,23 @@ namespace Echo
 
         packet.fire =
             input.fire ? 1u : 0u;
+
+        return packet;
+    }
+
+    inline NetworkPacket
+        CreateControlPacket(
+            NetworkPacketType type,
+            std::uint32_t sequence
+        ) noexcept
+    {
+        NetworkPacket packet{};
+
+        packet.type =
+            type;
+
+        packet.sequence =
+            sequence;
 
         return packet;
     }

@@ -44,6 +44,14 @@ namespace
         0.25;
 
     constexpr double
+        ConnectionRecoveryDuration =
+        30.0;
+
+    constexpr double
+        ReconnectAttemptInterval =
+        1.0;
+
+    constexpr double
         RemotePlayerInterpolationDuration =
         1.0 / 30.0;
 
@@ -165,13 +173,33 @@ namespace Echo
             m_networkSession.Update();
 
             if (m_networkSession.
+                ConsumeConnected())
+            {
+                HandleNetworkConnected();
+            }
+
+            if (m_networkSession.
                 ConsumeConnectionLost())
             {
                 HandleNetworkConnectionLost();
             }
 
+            if (m_networkGamePhase ==
+                NetworkGamePhase::
+                ConnectionRecovery)
+            {
+                UpdateConnectionRecovery(
+                    frameTime
+                );
+            }
+
+            const bool networkGameplayRunning =
+                m_networkGamePhase ==
+                NetworkGamePhase::Running;
+
             if (m_applicationState ==
                 ApplicationState::JoinGame &&
+                networkGameplayRunning &&
                 m_networkSession.IsConnected())
             {
                 m_playerInputSendAccumulator +=
@@ -223,6 +251,7 @@ namespace Echo
 
             if (m_applicationState ==
                 ApplicationState::JoinGame &&
+                networkGameplayRunning &&
                 m_networkSession.IsConnected() &&
                 m_hasReceivedWorldSnapshot)
             {
@@ -233,6 +262,7 @@ namespace Echo
 
             if (m_applicationState ==
                 ApplicationState::HostGame &&
+                networkGameplayRunning &&
                 m_networkSession.IsConnected())
             {
                 NetworkPlayerInput receivedInput{};
@@ -278,7 +308,10 @@ namespace Echo
             const bool isSimulationRunning =
                 m_applicationState ==
                 ApplicationState::LocalGame ||
-                isNetworkHost;
+                (
+                    isNetworkHost &&
+                    networkGameplayRunning
+                    );
 
             bool shouldSendWorldSnapshot =
                 false;
@@ -424,8 +457,13 @@ namespace Echo
             case ApplicationState::JoinGame:
             {
                 const bool canRenderRemoteWorld =
-                    m_networkSession.IsConnected() &&
-                    m_hasReceivedWorldSnapshot;
+                    m_hasReceivedWorldSnapshot &&
+                    (
+                        m_networkSession.IsConnected() ||
+                        m_networkGamePhase ==
+                        NetworkGamePhase::
+                        ConnectionRecovery
+                        );
 
                 if (canRenderRemoteWorld)
                 {
@@ -469,6 +507,86 @@ namespace Echo
 
                 break;
             }
+            }
+
+            if (m_networkGamePhase ==
+                NetworkGamePhase::
+                ConnectionRecovery &&
+                (
+                    m_applicationState ==
+                    ApplicationState::HostGame ||
+                    m_applicationState ==
+                    ApplicationState::JoinGame
+                    ))
+            {
+                const bool canContinueSolo =
+                    m_applicationState ==
+                    ApplicationState::JoinGame &&
+                    m_hasMigrationState;
+
+                const bool isConnectionRecovery =
+                    m_networkGamePhase ==
+                    NetworkGamePhase::
+                    ConnectionRecovery;
+
+                const bool isSynchronizingHost =
+                    m_networkGamePhase ==
+                    NetworkGamePhase::
+                    SynchronizingHost;
+
+                const bool isSynchronizingClient =
+                    m_networkGamePhase ==
+                    NetworkGamePhase::
+                    SynchronizingClient;
+
+                if (isConnectionRecovery ||
+                    isSynchronizingHost ||
+                    isSynchronizingClient)
+                {
+                    const bool canContinueSolo =
+                        isConnectionRecovery &&
+                        m_applicationState ==
+                        ApplicationState::JoinGame &&
+                        m_hasMigrationState;
+
+                    const wchar_t* title =
+                        L"CONNECTION LOST";
+
+                    const wchar_t* message =
+                        L"Restoring the game session...";
+
+                    bool showTimer =
+                        isConnectionRecovery;
+
+                    if (isSynchronizingHost)
+                    {
+                        title =
+                            L"PLAYER CONNECTED";
+
+                        message =
+                            L"Sending current game state...";
+                    }
+                    else if (isSynchronizingClient)
+                    {
+                        title =
+                            L"CONNECTING";
+
+                        message =
+                            L"Synchronizing game state...";
+                    }
+
+                    m_connectionRecoveryOverlay.Render(
+                        m_textRenderer,
+                        m_window,
+                        m_connectionRecoveryRemaining,
+                        showTimer,
+                        canContinueSolo,
+                        title,
+                        message,
+                        m_networkSession.
+                        GetStatusMessage()
+                    );
+                }
             }
 
             m_graphics.EndFrame(
@@ -529,19 +647,19 @@ namespace Echo
             remotePlayerIndex;
     }
 
-    void Application::HandleNetworkConnectionLost()
+    void Application::HandleNetworkConnected()
     {
         switch (m_applicationState)
         {
-        case ApplicationState::JoinGame:
+        case ApplicationState::HostGame:
         {
-            PromoteClientToHost();
+            BeginHostSynchronization();
             break;
         }
 
-        case ApplicationState::HostGame:
+        case ApplicationState::JoinGame:
         {
-            RestartHostListener();
+            BeginClientSynchronization();
             break;
         }
 
@@ -550,6 +668,325 @@ namespace Echo
             break;
         }
         }
+    }
+
+    void Application::BeginHostSynchronization()
+    {
+        m_networkGamePhase =
+            NetworkGamePhase::
+            SynchronizingHost;
+
+        m_checkpointQueued =
+            false;
+
+        m_checkpointAppliedQueued =
+            false;
+
+        m_resumeQueued =
+            false;
+
+        m_latestRemotePlayerInput =
+            NetworkPlayerInput{};
+
+        m_remoteInputAge =
+            0.0;
+
+        m_connectionRecoveryRemaining =
+            0.0;
+
+        m_connectionRecoveryOverlay.Reset();
+    }
+
+    void Application::BeginClientSynchronization()
+    {
+        m_networkGamePhase =
+            NetworkGamePhase::
+            SynchronizingClient;
+
+        m_checkpointQueued =
+            false;
+
+        m_checkpointAppliedQueued =
+            false;
+
+        m_resumeQueued =
+            false;
+
+        m_playerInputSendAccumulator =
+            0.0;
+
+        m_connectionRecoveryRemaining =
+            0.0;
+
+        m_connectionRecoveryOverlay.Reset();
+    }
+
+    void Application::UpdateNetworkSynchronization()
+    {
+        if (!m_networkSession.IsConnected())
+        {
+            return;
+        }
+
+        if (m_networkGamePhase ==
+            NetworkGamePhase::
+            SynchronizingHost)
+        {
+            if (!m_checkpointQueued)
+            {
+                if (!m_networkSession.
+                    IsOutgoingIdle())
+                {
+                    return;
+                }
+
+                m_networkSession.QueueWorldSnapshot(
+                    BuildWorldSnapshot()
+                );
+
+                m_checkpointQueued =
+                    true;
+
+                return;
+            }
+
+            if (!m_resumeQueued)
+            {
+                if (!m_networkSession.
+                    TryConsumeCheckpointApplied())
+                {
+                    return;
+                }
+
+                m_networkSession.QueueResumeGame();
+
+                m_resumeQueued =
+                    true;
+
+                return;
+            }
+
+            // ResumeGame has been completely handed
+            // to the TCP stream. Later packets will
+            // therefore arrive after it.
+            if (!m_networkSession.
+                IsOutgoingIdle())
+            {
+                return;
+            }
+
+            m_networkGamePhase =
+                NetworkGamePhase::
+                SynchronizingClient;
+
+            m_checkpointQueued =
+                false;
+
+            m_resumeQueued =
+                false;
+
+            m_connectionRecoveryOverlay.Reset();
+
+            return;
+        }
+
+        if (m_networkGamePhase !=
+            NetworkGamePhase::
+            SynchronizingClient)
+        {
+            return;
+        }
+
+        if (!m_checkpointAppliedQueued)
+        {
+            NetworkWorldSnapshot checkpoint{};
+
+            if (!m_networkSession.
+                TryConsumeWorldSnapshot(
+                    checkpoint
+                ))
+            {
+                return;
+            }
+
+            ApplyWorldSnapshot(
+                checkpoint
+            );
+
+            m_networkSession.
+                QueueCheckpointApplied();
+
+            m_checkpointAppliedQueued =
+                true;
+
+            return;
+        }
+
+        if (!m_networkSession.
+            TryConsumeResumeGame())
+        {
+            return;
+        }
+
+        m_networkGamePhase =
+            NetworkGamePhase::Running;
+
+        m_checkpointAppliedQueued =
+            false;
+
+        // Send normal input immediately after resume.
+        m_playerInputSendAccumulator =
+            PlayerInputSendInterval;
+
+        m_connectionRecoveryOverlay.Reset();
+    }
+
+    void Application::HandleNetworkConnectionLost()
+    {
+        if (m_applicationState !=
+            ApplicationState::HostGame &&
+            m_applicationState !=
+            ApplicationState::JoinGame)
+        {
+            return;
+        }
+
+        BeginConnectionRecovery();
+    }
+
+    void Application::BeginConnectionRecovery()
+    {
+        if (m_networkGamePhase ==
+            NetworkGamePhase::
+            ConnectionRecovery)
+        {
+            return;
+        }
+
+        m_networkGamePhase =
+            NetworkGamePhase::
+            ConnectionRecovery;
+
+        m_connectionRecoveryRemaining =
+            ConnectionRecoveryDuration;
+
+        // Allow the client to make its first
+        // reconnect attempt immediately.
+        m_reconnectAttemptAccumulator =
+            ReconnectAttemptInterval;
+
+        m_checkpointQueued =
+            false;
+
+        m_checkpointAppliedQueued =
+            false;
+
+        m_resumeQueued =
+            false;
+
+        m_latestRemotePlayerInput =
+            NetworkPlayerInput{};
+
+        m_remoteInputAge =
+            0.0;
+
+        m_playerInputSendAccumulator =
+            0.0;
+
+        m_connectionRecoveryOverlay.Reset();
+
+        if (m_applicationState ==
+            ApplicationState::HostGame)
+        {
+            RestartHostListener();
+        }
+        else
+        {
+            m_networkSession.Stop();
+        }
+    }
+
+    void Application::UpdateConnectionRecovery(
+        double deltaTime
+    )
+    {
+        if (m_networkGamePhase !=
+            NetworkGamePhase::
+            ConnectionRecovery)
+        {
+            return;
+        }
+
+        m_connectionRecoveryRemaining =
+            std::max(
+                0.0,
+                m_connectionRecoveryRemaining -
+                deltaTime
+            );
+
+        if (m_networkSession.IsConnected())
+        {
+            return;
+        }
+
+        m_reconnectAttemptAccumulator +=
+            deltaTime;
+
+        const NetworkSessionStatus status =
+            m_networkSession.GetStatus();
+
+        const bool canRestartAttempt =
+            status !=
+            NetworkSessionStatus::
+            Connecting &&
+            status !=
+            NetworkSessionStatus::
+            Connected;
+
+        if (m_reconnectAttemptAccumulator >=
+            ReconnectAttemptInterval &&
+            canRestartAttempt)
+        {
+            m_reconnectAttemptAccumulator =
+                0.0;
+
+            if (m_applicationState ==
+                ApplicationState::HostGame)
+            {
+                RestartHostListener();
+            }
+            else if (m_applicationState ==
+                ApplicationState::JoinGame)
+            {
+                m_networkSession.StartClient(
+                    LocalNetworkPort
+                );
+            }
+        }
+
+        if (m_applicationState !=
+            ApplicationState::JoinGame ||
+            m_connectionRecoveryRemaining >
+            0.0)
+        {
+            return;
+        }
+
+        if (m_hasMigrationState)
+        {
+            PromoteClientToHost();
+            return;
+        }
+
+        m_networkSession.Stop();
+
+        ResetNetworkGameState();
+
+        m_mainMenu.Reset();
+
+        EnterState(
+            ApplicationState::MainMenu
+        );
     }
 
     void Application::PromoteClientToHost()
@@ -587,6 +1024,26 @@ namespace Echo
         m_networkSession.StartHost(
             LocalNetworkPort
         );
+
+        m_networkGamePhase =
+            NetworkGamePhase::Running;
+
+        m_connectionRecoveryRemaining =
+            0.0;
+
+        m_reconnectAttemptAccumulator =
+            0.0;
+
+        m_checkpointQueued =
+            false;
+
+        m_checkpointAppliedQueued =
+            false;
+
+        m_resumeQueued =
+            false;
+
+        m_connectionRecoveryOverlay.Reset();
 
         EnterState(
             ApplicationState::HostGame
@@ -656,6 +1113,9 @@ namespace Echo
                     LocalNetworkPort
                 );
 
+                m_networkGamePhase =
+                    NetworkGamePhase::Running;
+
                 EnterState(
                     ApplicationState::HostGame
                 );
@@ -682,6 +1142,9 @@ namespace Echo
                 m_networkSession.StartClient(
                     LocalNetworkPort
                 );
+
+                m_networkGamePhase =
+                    NetworkGamePhase::Running;
 
                 EnterState(
                     ApplicationState::JoinGame
@@ -791,6 +1254,32 @@ namespace Echo
             if (m_keyboard.WasPressed(
                 Key::Escape))
             {
+
+                if (m_networkGamePhase ==
+                    NetworkGamePhase::
+                    ConnectionRecovery)
+                {
+                    const bool canContinueSolo =
+                        m_applicationState ==
+                        ApplicationState::JoinGame &&
+                        m_hasMigrationState;
+
+                    const ConnectionRecoveryAction action =
+                        m_connectionRecoveryOverlay.Update(
+                            m_keyboard,
+                            m_mouse,
+                            m_window,
+                            canContinueSolo
+                        );
+
+                    if (action ==
+                        ConnectionRecoveryAction::
+                        ContinueSolo)
+                    {
+                        PromoteClientToHost();
+                        break;
+                    }
+                }
 
                 m_networkSession.Stop();
 
@@ -1832,6 +2321,26 @@ namespace Echo
     void Application::ResetNetworkGameState()
         noexcept
     {
+        m_networkGamePhase =
+            NetworkGamePhase::Offline;
+
+        m_connectionRecoveryRemaining =
+            0.0;
+
+        m_reconnectAttemptAccumulator =
+            0.0;
+
+        m_checkpointQueued =
+            false;
+
+        m_checkpointAppliedQueued =
+            false;
+
+        m_resumeQueued =
+            false;
+
+        m_connectionRecoveryOverlay.Reset();
+
         m_latestRemotePlayerInput =
             NetworkPlayerInput{};
 

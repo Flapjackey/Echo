@@ -39,6 +39,14 @@ namespace Echo
             bool highlighted = false
         );
 
+        void FillRectangle(
+            const D2D1_RECT_F& rectangle,
+            float red,
+            float green,
+            float blue,
+            float alpha
+        );
+
         void End();
 
     private:

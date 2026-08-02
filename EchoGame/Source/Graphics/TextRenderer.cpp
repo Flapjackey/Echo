@@ -203,6 +203,29 @@ namespace Echo
         );
     }
 
+    void TextRenderer::FillRectangle(
+        const D2D1_RECT_F& rectangle,
+        float red,
+        float green,
+        float blue,
+        float alpha
+    )
+    {
+        m_brush->SetColor(
+            D2D1::ColorF(
+                red,
+                green,
+                blue,
+                alpha
+            )
+        );
+
+        m_context->FillRectangle(
+            rectangle,
+            m_brush.Get()
+        );
+    }
+
     void TextRenderer::End()
     {
         ThrowIfFailed(

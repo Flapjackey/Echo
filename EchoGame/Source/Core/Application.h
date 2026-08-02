@@ -11,10 +11,12 @@
 #include "Input/Keyboard.h"
 #include "Input/Mouse.h"
 #include "Network/NetworkSession.h"
+#include "Network/NetworkGamePhase.h"
 #include "Network/NetworkSystem.h"
 #include "Platform/Windows/Window.h"
 #include "UI/MainMenu.h"
 #include "UI/PauseMenu.h"
+#include "UI/ConnectionRecoveryOverlay.h"
 #include "UI/SettingsMenu.h"
 
 #include <cstddef>
@@ -77,7 +79,21 @@ namespace Echo
         void ResetNetworkGameState()
             noexcept;
 
+        void HandleNetworkConnected();
+
         void HandleNetworkConnectionLost();
+
+        void BeginHostSynchronization();
+
+        void BeginClientSynchronization();
+
+        void UpdateNetworkSynchronization();
+
+        void BeginConnectionRecovery();
+
+        void UpdateConnectionRecovery(
+            double deltaTime
+        );
 
         void PromoteClientToHost();
 
@@ -104,6 +120,24 @@ namespace Echo
 
         NetworkSystem m_networkSystem;
         NetworkSession m_networkSession;
+
+        NetworkGamePhase m_networkGamePhase =
+            NetworkGamePhase::Offline;
+
+        double m_connectionRecoveryRemaining =
+            0.0;
+
+        double m_reconnectAttemptAccumulator =
+            0.0;
+
+        bool m_checkpointQueued =
+            false;
+
+        bool m_checkpointAppliedQueued =
+            false;
+
+        bool m_resumeQueued =
+            false;
 
         std::size_t m_localNetworkPlayerIndex =
             0;
@@ -169,6 +203,10 @@ namespace Echo
 
         MainMenu m_mainMenu;
         PauseMenu m_pauseMenu;
+
+        ConnectionRecoveryOverlay
+            m_connectionRecoveryOverlay;
+
         SettingsMenu m_settingsMenu;
 
         Clock m_clock;
