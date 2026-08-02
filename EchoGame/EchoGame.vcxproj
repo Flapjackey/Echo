@@ -155,6 +155,7 @@
     <ClInclude Include="Source\Core\Application.h" />
     <ClInclude Include="Source\Core\ApplicationState.h" />
     <ClInclude Include="Source\Core\Clock.h" />
+    <ClInclude Include="Source\Core\EntityId.h" />
     <ClInclude Include="Source\Core\GameSettings.h" />
     <ClInclude Include="Source\Game\GameSession.h" />
     <ClInclude Include="Source\Game\Player.h" />

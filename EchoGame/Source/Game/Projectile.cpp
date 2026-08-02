@@ -2,31 +2,37 @@
 
 #include <cmath>
 
+namespace
+{
+    constexpr float
+        ProjectileMovementSpeed =
+        2.5f;
+}
+
 namespace Echo
 {
     Projectile::Projectile(
+        EntityId entityId,
         float positionX,
         float positionY,
         float directionX,
         float directionY
     ) noexcept
-        : m_positionX(positionX),
-        m_positionY(positionY)
+        : m_entityId(
+            entityId
+        )
     {
-        constexpr float movementSpeed =
-            2.5f;
-
-        m_velocityX =
-            directionX * movementSpeed;
-
-        m_velocityY =
-            directionY * movementSpeed;
-
-        m_rotation =
+        const float rotation =
             std::atan2(
                 directionY,
                 directionX
             );
+
+        SetNetworkState(
+            positionX,
+            positionY,
+            rotation
+        );
     }
 
     void Projectile::Update(
@@ -34,7 +40,9 @@ namespace Echo
     ) noexcept
     {
         const float fixedDeltaTime =
-            static_cast<float>(deltaTime);
+            static_cast<float>(
+                deltaTime
+                );
 
         m_positionX +=
             m_velocityX *
@@ -48,32 +56,73 @@ namespace Echo
             fixedDeltaTime;
     }
 
-    bool Projectile::IsAlive() const noexcept
+    void Projectile::SetNetworkState(
+        float positionX,
+        float positionY,
+        float rotation
+    ) noexcept
     {
-        return m_remainingLifetime > 0.0f;
+        m_positionX =
+            positionX;
+
+        m_positionY =
+            positionY;
+
+        m_rotation =
+            rotation;
+
+        m_velocityX =
+            std::cos(
+                rotation
+            ) *
+            ProjectileMovementSpeed;
+
+        m_velocityY =
+            std::sin(
+                rotation
+            ) *
+            ProjectileMovementSpeed;
     }
 
-    float Projectile::GetPositionX() const noexcept
+    EntityId Projectile::GetEntityId()
+        const noexcept
+    {
+        return m_entityId;
+    }
+
+    bool Projectile::IsAlive() const noexcept
+    {
+        return
+            m_remainingLifetime >
+            0.0f;
+    }
+
+    float Projectile::GetPositionX()
+        const noexcept
     {
         return m_positionX;
     }
 
-    float Projectile::GetPositionY() const noexcept
+    float Projectile::GetPositionY()
+        const noexcept
     {
         return m_positionY;
     }
 
-    float Projectile::GetRotation() const noexcept
+    float Projectile::GetRotation()
+        const noexcept
     {
         return m_rotation;
     }
 
-    float Projectile::GetWidth() const noexcept
+    float Projectile::GetWidth()
+        const noexcept
     {
         return m_width;
     }
 
-    float Projectile::GetHeight() const noexcept
+    float Projectile::GetHeight()
+        const noexcept
     {
         return m_height;
     }

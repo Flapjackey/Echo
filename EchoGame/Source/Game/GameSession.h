@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Core/EntityId.h"
 #include "Game/Player.h"
 #include "Game/PlayerCommand.h"
 #include "Game/Projectile.h"
@@ -58,7 +59,14 @@ namespace Echo
             std::vector<Projectile> projectiles
         );
 
+        void AdvanceProjectiles(
+            double deltaTime
+        ) noexcept;
+
     private:
+        EntityId AllocateProjectileEntityId()
+            noexcept;
+
         void TryFireProjectile(
             std::size_t playerIndex
         );
@@ -72,6 +80,9 @@ namespace Echo
 
         std::vector<Projectile>
             m_projectiles;
+
+        EntityId m_nextProjectileEntityId =
+            1;
 
         std::array<
             float,

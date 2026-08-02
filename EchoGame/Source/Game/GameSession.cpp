@@ -30,6 +30,9 @@ namespace Echo
 
         m_projectiles.clear();
 
+        m_nextProjectileEntityId =
+            1;
+
         m_fireCooldowns.fill(
             0.0f
         );
@@ -165,6 +168,39 @@ namespace Echo
             );
     }
 
+    void GameSession::AdvanceProjectiles(
+        double deltaTime
+    ) noexcept
+    {
+        for (Projectile& projectile :
+            m_projectiles)
+        {
+            projectile.Update(
+                deltaTime
+            );
+        }
+    }
+
+    EntityId GameSession::
+        AllocateProjectileEntityId()
+        noexcept
+    {
+        const EntityId entityId =
+            m_nextProjectileEntityId;
+
+        ++m_nextProjectileEntityId;
+
+        // Zero is reserved as an invalid ID.
+        if (m_nextProjectileEntityId ==
+            InvalidEntityId)
+        {
+            m_nextProjectileEntityId =
+                1;
+        }
+
+        return entityId;
+    }
+
     void GameSession::TryFireProjectile(
         std::size_t playerIndex
     )
@@ -207,7 +243,11 @@ namespace Echo
             forwardY *
             SpawnDistance;
 
+        const EntityId projectileEntityId =
+            AllocateProjectileEntityId();
+
         m_projectiles.emplace_back(
+            projectileEntityId,
             spawnX,
             spawnY,
             forwardX,

@@ -1,11 +1,14 @@
 #pragma once
 
+#include "Core/EntityId.h"
+
 namespace Echo
 {
     class Projectile final
     {
     public:
         Projectile(
+            EntityId entityId,
             float positionX,
             float positionY,
             float directionX,
@@ -16,17 +19,28 @@ namespace Echo
             double deltaTime
         ) noexcept;
 
+        void SetNetworkState(
+            float positionX,
+            float positionY,
+            float rotation
+        ) noexcept;
+
+        EntityId GetEntityId()
+            const noexcept;
+
         bool IsAlive() const noexcept;
 
         float GetPositionX() const noexcept;
         float GetPositionY() const noexcept;
 
         float GetRotation() const noexcept;
-
         float GetWidth() const noexcept;
         float GetHeight() const noexcept;
 
     private:
+        EntityId m_entityId =
+            InvalidEntityId;
+
         float m_positionX = 0.0f;
         float m_positionY = 0.0f;
 
