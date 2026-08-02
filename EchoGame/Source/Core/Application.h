@@ -40,6 +40,11 @@ namespace Echo
             BuildLocalPlayerCommands()
             const noexcept;
 
+        void SetNetworkPlayerOwnership(
+            std::size_t localPlayerIndex,
+            std::size_t remotePlayerIndex
+        ) noexcept;
+
         GameSession::PlayerCommands
             BuildHostPlayerCommands()
             const noexcept;
@@ -89,6 +94,12 @@ namespace Echo
 
         NetworkSystem m_networkSystem;
         NetworkSession m_networkSession;
+
+        std::size_t m_localNetworkPlayerIndex =
+            0;
+
+        std::size_t m_remoteNetworkPlayerIndex =
+            1;
 
         NetworkPlayerInput
             m_latestRemotePlayerInput{};

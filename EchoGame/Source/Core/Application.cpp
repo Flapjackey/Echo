@@ -19,6 +19,14 @@ namespace
     constexpr unsigned int ClientHeight =
         720;
 
+    constexpr std::size_t
+        InitialHostPlayerIndex =
+        0;
+
+    constexpr std::size_t
+        InitialClientPlayerIndex =
+        1;
+
     constexpr std::uint16_t
         LocalNetworkPort =
         27015;
@@ -495,6 +503,34 @@ namespace Echo
         );
     }
 
+    void Application::SetNetworkPlayerOwnership(
+        std::size_t localPlayerIndex,
+        std::size_t remotePlayerIndex
+    ) noexcept
+    {
+        static_assert(
+            GameSession::PlayerCount ==
+            NetworkPlayerCount,
+            "Game and network player counts differ."
+            );
+
+        if (localPlayerIndex >=
+            NetworkPlayerCount ||
+            remotePlayerIndex >=
+            NetworkPlayerCount ||
+            localPlayerIndex ==
+            remotePlayerIndex)
+        {
+            return;
+        }
+
+        m_localNetworkPlayerIndex =
+            localPlayerIndex;
+
+        m_remoteNetworkPlayerIndex =
+            remotePlayerIndex;
+    }
+
     void Application::HandleApplicationInput()
     {
         switch (m_applicationState)
@@ -533,6 +569,11 @@ namespace Echo
 
                 ResetNetworkGameState();
 
+                SetNetworkPlayerOwnership(
+                    InitialHostPlayerIndex,
+                    InitialClientPlayerIndex
+                );
+
                 m_networkSession.StartHost(
                     LocalNetworkPort
                 );
@@ -549,6 +590,11 @@ namespace Echo
                 m_gameSession.Reset();
 
                 ResetNetworkGameState();
+
+                SetNetworkPlayerOwnership(
+                    InitialClientPlayerIndex,
+                    InitialHostPlayerIndex
+                );
 
                 // Send the first command immediately
                 // after the connection is established.
@@ -848,7 +894,17 @@ namespace Echo
             << L" | Projectiles: "
             << m_gameSession
             .GetProjectiles()
-            .size();
+            .size()
+            << L" | Local: P"
+            << (
+                m_localNetworkPlayerIndex +
+                1
+                )
+            << L" | Remote: P"
+            << (
+                m_remoteNetworkPlayerIndex +
+                1
+                );
 
         m_textRenderer.Begin();
 
@@ -1025,19 +1081,23 @@ namespace Echo
         GameSession::PlayerCommands
             commands{};
 
-        commands[0] =
+        commands[
+            m_localNetworkPlayerIndex
+        ] =
             BuildPlayerCommand(
-                0,
+                m_localNetworkPlayerIndex,
                 BuildLocalNetworkInput()
             );
 
-        commands[1] =
-            BuildPlayerCommand(
-                1,
-                m_latestRemotePlayerInput
-            );
+            commands[
+                m_remoteNetworkPlayerIndex
+            ] =
+                BuildPlayerCommand(
+                    m_remoteNetworkPlayerIndex,
+                    m_latestRemotePlayerInput
+                );
 
-        return commands;
+                return commands;
     }
 
     NetworkPlayerInput
@@ -1213,6 +1273,11 @@ namespace Echo
         snapshot.lastProcessedInputSequence =
             m_lastProcessedRemoteInputSequence;
 
+        snapshot.assignedPlayerIndex =
+            static_cast<std::uint32_t>(
+                m_remoteNetworkPlayerIndex
+                );
+
         for (std::size_t playerIndex = 0;
             playerIndex < NetworkPlayerCount;
             ++playerIndex)
@@ -1294,6 +1359,23 @@ namespace Echo
 
         m_lastAcknowledgedInputSequence =
             snapshot.lastProcessedInputSequence;
+
+        const std::size_t assignedPlayerIndex =
+            static_cast<std::size_t>(
+                snapshot.assignedPlayerIndex
+                );
+
+        const std::size_t remotePlayerIndex =
+            (
+                assignedPlayerIndex +
+                1
+                ) %
+            NetworkPlayerCount;
+
+        SetNetworkPlayerOwnership(
+            assignedPlayerIndex,
+            remotePlayerIndex
+        );
 
         if (!m_hasReceivedWorldSnapshot)
         {
