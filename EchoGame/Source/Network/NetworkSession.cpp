@@ -233,6 +233,9 @@ namespace Echo
             m_statusMessage =
                 L"Connected to host";
 
+            m_connectedEvent =
+                true;
+
             return;
         }
 
@@ -336,6 +339,50 @@ namespace Echo
         );
     }
 
+    void NetworkSession::QueueCheckpointApplied()
+        noexcept
+    {
+        if (!IsConnected())
+        {
+            return;
+        }
+
+        const NetworkPacket packet =
+            CreateControlPacket(
+                NetworkPacketType::
+                CheckpointApplied,
+                m_nextSequence
+            );
+
+        ++m_nextSequence;
+
+        QueuePacket(
+            packet
+        );
+    }
+
+    void NetworkSession::QueueResumeGame()
+        noexcept
+    {
+        if (!IsConnected())
+        {
+            return;
+        }
+
+        const NetworkPacket packet =
+            CreateControlPacket(
+                NetworkPacketType::
+                ResumeGame,
+                m_nextSequence
+            );
+
+        ++m_nextSequence;
+
+        QueuePacket(
+            packet
+        );
+    }
+
     bool NetworkSession::TryConsumePlayerInput(
         NetworkPlayerInput& input
     ) noexcept
@@ -367,6 +414,35 @@ namespace Echo
             m_latestReceivedWorldSnapshot;
 
         m_hasReceivedWorldSnapshot =
+            false;
+
+        return true;
+    }
+
+    bool NetworkSession::
+        TryConsumeCheckpointApplied()
+        noexcept
+    {
+        if (!m_hasReceivedCheckpointApplied)
+        {
+            return false;
+        }
+
+        m_hasReceivedCheckpointApplied =
+            false;
+
+        return true;
+    }
+
+    bool NetworkSession::TryConsumeResumeGame()
+        noexcept
+    {
+        if (!m_hasReceivedResumeGame)
+        {
+            return false;
+        }
+
+        m_hasReceivedResumeGame =
             false;
 
         return true;
@@ -408,6 +484,28 @@ namespace Echo
             NetworkSessionStatus::Connected;
     }
 
+    bool NetworkSession::IsOutgoingIdle()
+        const noexcept
+    {
+        return
+            !m_hasPendingSendPacket &&
+            !m_hasQueuedSendPacket;
+    }
+
+    bool NetworkSession::ConsumeConnected()
+        noexcept
+    {
+        if (!m_connectedEvent)
+        {
+            return false;
+        }
+
+        m_connectedEvent =
+            false;
+
+        return true;
+    }
+
     bool NetworkSession::ConsumeConnectionLost()
         noexcept
     {
@@ -438,6 +536,9 @@ namespace Echo
             L"Disconnected";
 
         m_connectionLost =
+            false;
+
+        m_connectedEvent =
             false;
     }
 
@@ -535,6 +636,9 @@ namespace Echo
 
             m_statusMessage =
                 L"Client connected";
+
+            m_connectedEvent =
+                true;
         }
 
         if (m_status ==
@@ -645,6 +749,9 @@ namespace Echo
 
             m_statusMessage =
                 L"Connected to host";
+
+            m_connectedEvent =
+                true;
         }
 
         if (m_status ==
@@ -803,6 +910,9 @@ namespace Echo
                 m_statusMessage =
                     L"Other process disconnected";
 
+                m_connectedEvent =
+                    false;
+
                 m_connectionLost =
                     true;
 
@@ -908,6 +1018,23 @@ namespace Echo
                 break;
             }
 
+            case NetworkPacketType::
+            CheckpointApplied:
+            {
+                m_hasReceivedCheckpointApplied =
+                    true;
+
+                break;
+            }
+
+            case NetworkPacketType::ResumeGame:
+            {
+                m_hasReceivedResumeGame =
+                    true;
+
+                break;
+            }
+
             default:
             {
                 SetError(
@@ -956,6 +1083,12 @@ namespace Echo
 
         m_hasReceivedWorldSnapshot = false;
 
+        m_hasReceivedCheckpointApplied =
+            false;
+
+        m_hasReceivedResumeGame =
+            false;
+
         m_nextSequence = 1;
     }
 
@@ -996,6 +1129,9 @@ namespace Echo
     {
         const bool wasConnected =
             IsConnected();
+
+        m_connectedEvent =
+            false;
 
         CloseSockets();
         ResetTransferState();
