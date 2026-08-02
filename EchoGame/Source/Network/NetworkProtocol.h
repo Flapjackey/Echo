@@ -55,6 +55,9 @@ namespace Echo
         std::uint32_t
             lastProcessedInputSequence = 0;
 
+        std::uint32_t
+            assignedPlayerIndex = 0;
+
         std::array<
             NetworkPlayerState,
             NetworkPlayerCount
@@ -81,7 +84,7 @@ namespace Echo
             ExpectedMagic = 0x4543484F;
 
         static constexpr std::uint16_t
-            ExpectedVersion = 5;
+            ExpectedVersion = 6;
 
         std::uint32_t magic =
             ExpectedMagic;
@@ -116,6 +119,9 @@ namespace Echo
         std::uint32_t
             lastProcessedInputSequence = 0;
 
+        std::uint32_t
+            assignedPlayerIndex = 0;
+
         // World snapshot entity payload.
         std::array<
             NetworkPlayerState,
@@ -131,7 +137,7 @@ namespace Echo
     };
 
     static_assert(
-        sizeof(NetworkPacket) == 588,
+        sizeof(NetworkPacket) == 592,
         "Unexpected NetworkPacket size."
         );
 
@@ -253,6 +259,9 @@ namespace Echo
         packet.lastProcessedInputSequence =
             snapshot.lastProcessedInputSequence;
 
+        packet.assignedPlayerIndex =
+            snapshot.assignedPlayerIndex;
+
         packet.players =
             snapshot.players;
 
@@ -273,6 +282,14 @@ namespace Echo
         if (!HasValidNetworkHeader(packet) ||
             packet.type !=
             NetworkPacketType::WorldSnapshot)
+        {
+            return false;
+        }
+
+        if (packet.assignedPlayerIndex >=
+            static_cast<std::uint32_t>(
+                NetworkPlayerCount
+                ))
         {
             return false;
         }
@@ -319,6 +336,9 @@ namespace Echo
 
         snapshot.lastProcessedInputSequence =
             packet.lastProcessedInputSequence;
+
+        snapshot.assignedPlayerIndex =
+            packet.assignedPlayerIndex;
 
         snapshot.players =
             packet.players;
