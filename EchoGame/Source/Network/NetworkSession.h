@@ -61,6 +61,21 @@ namespace Echo
 
         void Stop();
 
+        void SetLocalIdentity(
+            SessionId sessionId,
+            PlayerId localPlayerId,
+            PlayerId hostPlayerId,
+            std::uint32_t hostEpoch
+        ) noexcept;
+
+        void QueueConnectionHello(
+            const NetworkConnectionHello& hello
+        ) noexcept;
+
+        void QueueSessionWelcome(
+            const NetworkSessionWelcome& welcome
+        ) noexcept;
+
         void QueuePlayerInput(
             const NetworkPlayerInput& input
         ) noexcept;
@@ -74,6 +89,14 @@ namespace Echo
 
         void QueueResumeGame()
             noexcept;
+
+        bool TryConsumeConnectionHello(
+            NetworkConnectionHello& hello
+        ) noexcept;
+
+        bool TryConsumeSessionWelcome(
+            NetworkSessionWelcome& welcome
+        ) noexcept;
 
         bool TryConsumePlayerInput(
             NetworkPlayerInput& input
@@ -121,19 +144,32 @@ namespace Echo
                 );
 
         void UpdateHost();
+
         void UpdateClient();
+
         void UpdateConnectedState();
+
+        void StampPacketIdentity(
+            NetworkPacket& packet
+        ) const noexcept;
+
+        bool HasMatchingPacketIdentity(
+            const NetworkPacket& packet
+        ) const noexcept;
 
         void QueuePacket(
             const NetworkPacket& packet
         ) noexcept;
 
         void FlushOutgoingData();
+
         void ReceiveIncomingData();
 
-        void ResetTransferState() noexcept;
+        void ResetTransferState()
+            noexcept;
 
-        void CloseSockets() noexcept;
+        void CloseSockets()
+            noexcept;
 
         void SetError(
             const wchar_t* operation,
@@ -156,32 +192,63 @@ namespace Echo
         std::wstring m_statusMessage =
             L"Disconnected";
 
+        SessionId m_sessionId =
+            InvalidSessionId;
+
+        PlayerId m_localPlayerId =
+            InvalidPlayerId;
+
+        PlayerId m_hostPlayerId =
+            InvalidPlayerId;
+
+        std::uint32_t m_hostEpoch =
+            0;
+
         NetworkPacket
             m_pendingSendPacket{};
 
-        std::size_t m_pendingSendOffset = 0;
+        std::size_t
+            m_pendingSendOffset =
+            0;
 
-        bool m_hasPendingSendPacket = false;
+        bool m_hasPendingSendPacket =
+            false;
 
         NetworkPacket
             m_queuedSendPacket{};
 
-        bool m_hasQueuedSendPacket = false;
+        bool m_hasQueuedSendPacket =
+            false;
 
         NetworkPacket
             m_receivePacket{};
 
-        std::size_t m_receiveOffset = 0;
+        std::size_t m_receiveOffset =
+            0;
+
+        NetworkConnectionHello
+            m_latestReceivedConnectionHello{};
+
+        bool m_hasReceivedConnectionHello =
+            false;
+
+        NetworkSessionWelcome
+            m_latestReceivedSessionWelcome{};
+
+        bool m_hasReceivedSessionWelcome =
+            false;
 
         NetworkPlayerInput
             m_latestReceivedPlayerInput{};
 
-        bool m_hasReceivedPlayerInput = false;
+        bool m_hasReceivedPlayerInput =
+            false;
 
         NetworkWorldSnapshot
             m_latestReceivedWorldSnapshot{};
 
-        bool m_hasReceivedWorldSnapshot = false;
+        bool m_hasReceivedWorldSnapshot =
+            false;
 
         bool m_hasReceivedCheckpointApplied =
             false;
@@ -195,6 +262,7 @@ namespace Echo
         bool m_connectionLost =
             false;
 
-        std::uint32_t m_nextSequence = 1;
+        std::uint32_t m_nextSequence =
+            1;
     };
 }

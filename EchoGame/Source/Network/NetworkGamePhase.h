@@ -6,8 +6,13 @@ namespace Echo
     {
         Offline,
         Running,
-        ConnectionRecovery,
+
+        HandshakingHost,
+        HandshakingClient,
+
         SynchronizingHost,
-        SynchronizingClient
+        SynchronizingClient,
+
+        ConnectionRecovery
     };
 }
