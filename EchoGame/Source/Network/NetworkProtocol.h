@@ -10,6 +10,9 @@ namespace Echo
     constexpr std::size_t
         NetworkPlayerCount = 2;
 
+    constexpr std::size_t
+        NetworkMaxProjectileCount = 32;
+
     struct NetworkPlayerInput final
     {
         float movementX = 0.0f;
@@ -29,12 +32,26 @@ namespace Echo
         float rotation = 0.0f;
     };
 
+    struct NetworkProjectileState final
+    {
+        float positionX = 0.0f;
+        float positionY = 0.0f;
+        float rotation = 0.0f;
+    };
+
     struct NetworkWorldSnapshot final
     {
         std::array<
             NetworkPlayerState,
             NetworkPlayerCount
         > players{};
+
+        std::uint32_t projectileCount = 0;
+
+        std::array<
+            NetworkProjectileState,
+            NetworkMaxProjectileCount
+        > projectiles{};
     };
 
     enum class NetworkPacketType :
@@ -50,7 +67,7 @@ namespace Echo
             ExpectedMagic = 0x4543484F;
 
         static constexpr std::uint16_t
-            ExpectedVersion = 2;
+            ExpectedVersion = 3;
 
         std::uint32_t magic =
             ExpectedMagic;
@@ -80,10 +97,17 @@ namespace Echo
             NetworkPlayerState,
             NetworkPlayerCount
         > players{};
+
+        std::uint32_t projectileCount = 0;
+
+        std::array<
+            NetworkProjectileState,
+            NetworkMaxProjectileCount
+        > projectiles{};
     };
 
     static_assert(
-        sizeof(NetworkPacket) == 56,
+        sizeof(NetworkPacket) == 444,
         "Unexpected NetworkPacket size."
         );
 
@@ -190,6 +214,12 @@ namespace Echo
         packet.players =
             snapshot.players;
 
+        packet.projectileCount =
+            snapshot.projectileCount;
+
+        packet.projectiles =
+            snapshot.projectiles;
+
         return packet;
     }
 
@@ -205,8 +235,20 @@ namespace Echo
             return false;
         }
 
+        if (packet.projectileCount >
+            NetworkMaxProjectileCount)
+        {
+            return false;
+        }
+
         snapshot.players =
             packet.players;
+
+        snapshot.projectileCount =
+            packet.projectileCount;
+
+        snapshot.projectiles =
+            packet.projectiles;
 
         return true;
     }
