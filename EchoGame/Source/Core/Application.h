@@ -58,7 +58,7 @@ namespace Echo
 
         void ApplyWorldSnapshot(
             const NetworkWorldSnapshot& snapshot
-        ) noexcept;
+        );
 
         void HandleApplicationInput();
 

@@ -3,6 +3,7 @@
 #include "Game/World/Levels/TestArena.h"
 
 #include <algorithm>
+#include <utility>
 
 namespace Echo
 {
@@ -152,6 +153,16 @@ namespace Echo
         GameSession::GetProjectiles() const noexcept
     {
         return m_projectiles;
+    }
+
+    void GameSession::SetProjectiles(
+        std::vector<Projectile> projectiles
+    )
+    {
+        m_projectiles =
+            std::move(
+                projectiles
+            );
     }
 
     void GameSession::TryFireProjectile(

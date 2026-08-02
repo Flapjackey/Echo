@@ -54,6 +54,10 @@ namespace Echo
         const std::vector<Projectile>&
             GetProjectiles() const noexcept;
 
+        void SetProjectiles(
+            std::vector<Projectile> projectiles
+        );
+
     private:
         void TryFireProjectile(
             std::size_t playerIndex

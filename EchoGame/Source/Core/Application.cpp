@@ -8,6 +8,8 @@
 #include <cstdint>
 #include <iomanip>
 #include <sstream>
+#include <utility>
+#include <vector>
 
 namespace
 {
@@ -1076,12 +1078,49 @@ namespace Echo
                 player.GetRotation();
         }
 
+        const std::vector<Projectile>& projectiles =
+            m_gameSession.GetProjectiles();
+
+        const std::size_t projectileCount =
+            std::min(
+                projectiles.size(),
+                NetworkMaxProjectileCount
+            );
+
+        snapshot.projectileCount =
+            static_cast<std::uint32_t>(
+                projectileCount
+                );
+
+        for (std::size_t projectileIndex = 0;
+            projectileIndex < projectileCount;
+            ++projectileIndex)
+        {
+            const Projectile& projectile =
+                projectiles[projectileIndex];
+
+            NetworkProjectileState&
+                projectileState =
+                snapshot.projectiles[
+                    projectileIndex
+                ];
+
+            projectileState.positionX =
+                projectile.GetPositionX();
+
+            projectileState.positionY =
+                projectile.GetPositionY();
+
+            projectileState.rotation =
+                projectile.GetRotation();
+        }
+
         return snapshot;
     }
 
     void Application::ApplyWorldSnapshot(
         const NetworkWorldSnapshot& snapshot
-    ) noexcept
+    )
     {
         static_assert(
             GameSession::PlayerCount ==
@@ -1104,6 +1143,54 @@ namespace Echo
                 playerState.rotation
             );
         }
+
+        const std::size_t projectileCount =
+            std::min(
+                static_cast<std::size_t>(
+                    snapshot.projectileCount
+                    ),
+                NetworkMaxProjectileCount
+            );
+
+        std::vector<Projectile> projectiles;
+
+        projectiles.reserve(
+            projectileCount
+        );
+
+        for (std::size_t projectileIndex = 0;
+            projectileIndex < projectileCount;
+            ++projectileIndex)
+        {
+            const NetworkProjectileState&
+                projectileState =
+                snapshot.projectiles[
+                    projectileIndex
+                ];
+
+            const float directionX =
+                std::cos(
+                    projectileState.rotation
+                );
+
+            const float directionY =
+                std::sin(
+                    projectileState.rotation
+                );
+
+            projectiles.emplace_back(
+                projectileState.positionX,
+                projectileState.positionY,
+                directionX,
+                directionY
+            );
+        }
+
+        m_gameSession.SetProjectiles(
+            std::move(
+                projectiles
+            )
+        );
     }
 
     void Application::UpdateStatistics(
