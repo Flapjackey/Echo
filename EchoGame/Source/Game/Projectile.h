@@ -25,7 +25,14 @@ namespace Echo
             float rotation
         ) noexcept;
 
+        void SetRemainingLifetime(
+            float remainingLifetime
+        ) noexcept;
+
         EntityId GetEntityId()
+            const noexcept;
+
+        float GetRemainingLifetime()
             const noexcept;
 
         bool IsAlive() const noexcept;

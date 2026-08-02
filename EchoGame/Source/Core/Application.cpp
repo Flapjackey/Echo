@@ -164,6 +164,12 @@ namespace Echo
 
             m_networkSession.Update();
 
+            if (m_networkSession.
+                ConsumeConnectionLost())
+            {
+                HandleNetworkConnectionLost();
+            }
+
             if (m_applicationState ==
                 ApplicationState::JoinGame &&
                 m_networkSession.IsConnected())
@@ -261,15 +267,18 @@ namespace Echo
                     0.0;
             }
 
-            const bool isConnectedHost =
+            const bool isNetworkHost =
                 m_applicationState ==
-                ApplicationState::HostGame &&
+                ApplicationState::HostGame;
+
+            const bool isConnectedHost =
+                isNetworkHost &&
                 m_networkSession.IsConnected();
 
             const bool isSimulationRunning =
                 m_applicationState ==
                 ApplicationState::LocalGame ||
-                isConnectedHost;
+                isNetworkHost;
 
             bool shouldSendWorldSnapshot =
                 false;
@@ -279,7 +288,7 @@ namespace Echo
                 GameSession::PlayerCommands
                     playerCommands{};
 
-                if (isConnectedHost)
+                if (isNetworkHost)
                 {
                     playerCommands =
                         BuildHostPlayerCommands();
@@ -304,11 +313,12 @@ namespace Echo
                     accumulatedTime -=
                         fixedDeltaTime;
 
-                    if (isConnectedHost)
+                    if (isNetworkHost)
                     {
                         ++m_serverTick;
 
-                        if (m_latestRemotePlayerInput.
+                        if (isConnectedHost &&
+                            m_latestRemotePlayerInput.
                             inputSequence != 0)
                         {
                             m_lastProcessedRemoteInputSequence =
@@ -316,7 +326,8 @@ namespace Echo
                                 inputSequence;
                         }
 
-                        if (m_serverTick %
+                        if (isConnectedHost &&
+                            m_serverTick %
                             SnapshotTickInterval ==
                             0)
                         {
@@ -399,26 +410,13 @@ namespace Echo
 
             case ApplicationState::HostGame:
             {
-                if (m_networkSession.IsConnected())
-                {
-                    m_graphics.BeginFrame(
-                        0.02f,
-                        0.04f,
-                        0.08f
-                    );
+                m_graphics.BeginFrame(
+                    0.02f,
+                    0.04f,
+                    0.08f
+                );
 
-                    RenderGameplay();
-                }
-                else
-                {
-                    m_graphics.BeginFrame(
-                        0.05f,
-                        0.03f,
-                        0.05f
-                    );
-
-                    RenderPlaceholder();
-                }
+                RenderGameplay();
 
                 break;
             }
@@ -529,6 +527,86 @@ namespace Echo
 
         m_remoteNetworkPlayerIndex =
             remotePlayerIndex;
+    }
+
+    void Application::HandleNetworkConnectionLost()
+    {
+        switch (m_applicationState)
+        {
+        case ApplicationState::JoinGame:
+        {
+            PromoteClientToHost();
+            break;
+        }
+
+        case ApplicationState::HostGame:
+        {
+            RestartHostListener();
+            break;
+        }
+
+        default:
+        {
+            break;
+        }
+        }
+    }
+
+    void Application::PromoteClientToHost()
+    {
+        if (!m_hasMigrationState)
+        {
+            return;
+        }
+
+        // Preserve the latest authoritative backup
+        // before resetting client-side network state.
+        const GameMigrationState migrationState =
+            m_latestMigrationState;
+
+        const std::uint32_t restoredServerTick =
+            m_latestReceivedServerTick;
+
+        m_networkSession.Stop();
+
+        ResetNetworkGameState();
+
+        m_gameSession.RestoreMigrationState(
+            migrationState
+        );
+
+        m_serverTick =
+            restoredServerTick;
+
+        // Player ownership is intentionally preserved.
+        // The former client continues controlling
+        // the same player after becoming the host.
+        m_latestRemotePlayerInput =
+            NetworkPlayerInput{};
+
+        m_networkSession.StartHost(
+            LocalNetworkPort
+        );
+
+        EnterState(
+            ApplicationState::HostGame
+        );
+    }
+
+    void Application::RestartHostListener()
+    {
+        m_latestRemotePlayerInput =
+            NetworkPlayerInput{};
+
+        m_remoteInputAge =
+            0.0;
+
+        m_lastProcessedRemoteInputSequence =
+            0;
+
+        m_networkSession.StartHost(
+            LocalNetworkPort
+        );
     }
 
     void Application::HandleApplicationInput()
@@ -904,7 +982,16 @@ namespace Echo
             << (
                 m_remoteNetworkPlayerIndex +
                 1
-                );
+                )
+            << L" | Backup: "
+            << (
+                m_hasMigrationState
+                ? L"Ready"
+                : L"Waiting"
+                )
+            << L" | Net: "
+            << m_networkSession.
+            GetStatusMessage();
 
         m_textRenderer.Begin();
 
@@ -1278,6 +1365,13 @@ namespace Echo
                 m_remoteNetworkPlayerIndex
                 );
 
+        snapshot.nextProjectileEntityId =
+            m_gameSession.
+            GetNextProjectileEntityId();
+
+        snapshot.fireCooldowns =
+            m_gameSession.GetFireCooldowns();
+
         for (std::size_t playerIndex = 0;
             playerIndex < NetworkPlayerCount;
             ++playerIndex)
@@ -1339,9 +1433,114 @@ namespace Echo
 
             projectileState.rotation =
                 projectile.GetRotation();
+
+            projectileState.remainingLifetime =
+                projectile.GetRemainingLifetime();
         }
 
         return snapshot;
+    }
+
+    GameMigrationState
+        Application::BuildMigrationState(
+            const NetworkWorldSnapshot& snapshot
+        ) const
+    {
+        static_assert(
+            GameSession::PlayerCount ==
+            GameMigrationPlayerCount,
+            "Game and migration player counts differ."
+            );
+
+        static_assert(
+            NetworkPlayerCount ==
+            GameMigrationPlayerCount,
+            "Network and migration player counts differ."
+            );
+
+        GameMigrationState migrationState{};
+
+        for (std::size_t playerIndex = 0;
+            playerIndex <
+            GameMigrationPlayerCount;
+            ++playerIndex)
+        {
+            const NetworkPlayerState&
+                networkPlayerState =
+                snapshot.players[
+                    playerIndex
+                ];
+
+            GameMigrationPlayerState&
+                migrationPlayerState =
+                migrationState.players[
+                    playerIndex
+                ];
+
+            migrationPlayerState.positionX =
+                networkPlayerState.positionX;
+
+            migrationPlayerState.positionY =
+                networkPlayerState.positionY;
+
+            migrationPlayerState.rotation =
+                networkPlayerState.rotation;
+        }
+
+        migrationState.nextProjectileEntityId =
+            snapshot.nextProjectileEntityId;
+
+        migrationState.fireCooldowns =
+            snapshot.fireCooldowns;
+
+        const std::size_t projectileCount =
+            std::min(
+                static_cast<std::size_t>(
+                    snapshot.projectileCount
+                    ),
+                NetworkMaxProjectileCount
+            );
+
+        migrationState.projectiles.reserve(
+            projectileCount
+        );
+
+        for (std::size_t projectileIndex = 0;
+            projectileIndex < projectileCount;
+            ++projectileIndex)
+        {
+            const NetworkProjectileState&
+                networkProjectileState =
+                snapshot.projectiles[
+                    projectileIndex
+                ];
+
+            GameMigrationProjectileState
+                migrationProjectileState{};
+
+            migrationProjectileState.entityId =
+                networkProjectileState.entityId;
+
+            migrationProjectileState.positionX =
+                networkProjectileState.positionX;
+
+            migrationProjectileState.positionY =
+                networkProjectileState.positionY;
+
+            migrationProjectileState.rotation =
+                networkProjectileState.rotation;
+
+            migrationProjectileState.
+                remainingLifetime =
+                networkProjectileState.
+                remainingLifetime;
+
+            migrationState.projectiles.push_back(
+                migrationProjectileState
+            );
+        }
+
+        return migrationState;
     }
 
     void Application::ApplyWorldSnapshot(
@@ -1376,6 +1575,14 @@ namespace Echo
             assignedPlayerIndex,
             remotePlayerIndex
         );
+
+        m_latestMigrationState =
+            BuildMigrationState(
+                snapshot
+            );
+
+        m_hasMigrationState =
+            true;
 
         if (!m_hasReceivedWorldSnapshot)
         {
@@ -1504,6 +1711,11 @@ namespace Echo
                         projectileState.rotation
                     );
 
+                synchronizedProjectiles.back().
+                    SetRemainingLifetime(
+                        projectileState.remainingLifetime
+                    );
+
                 continue;
             }
 
@@ -1524,6 +1736,11 @@ namespace Echo
                 directionX,
                 directionY
             );
+
+            synchronizedProjectiles.back().
+                SetRemainingLifetime(
+                    projectileState.remainingLifetime
+                );
         }
 
         m_gameSession.SetProjectiles(
@@ -1641,6 +1858,21 @@ namespace Echo
 
         m_latestReceivedServerTick =
             0;
+
+        m_latestMigrationState.players = {};
+
+        m_latestMigrationState.
+            projectiles.clear();
+
+        m_latestMigrationState.
+            nextProjectileEntityId =
+            1;
+
+        m_latestMigrationState.
+            fireCooldowns = {};
+
+        m_hasMigrationState =
+            false;
 
         m_remoteInterpolationStart =
             NetworkWorldSnapshot{};

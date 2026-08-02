@@ -408,6 +408,20 @@ namespace Echo
             NetworkSessionStatus::Connected;
     }
 
+    bool NetworkSession::ConsumeConnectionLost()
+        noexcept
+    {
+        if (!m_connectionLost)
+        {
+            return false;
+        }
+
+        m_connectionLost =
+            false;
+
+        return true;
+    }
+
     void NetworkSession::Stop()
     {
         CloseSockets();
@@ -422,6 +436,9 @@ namespace Echo
 
         m_statusMessage =
             L"Disconnected";
+
+        m_connectionLost =
+            false;
     }
 
     NetworkSessionMode
@@ -786,6 +803,9 @@ namespace Echo
                 m_statusMessage =
                     L"Other process disconnected";
 
+                m_connectionLost =
+                    true;
+
                 return;
             }
 
@@ -974,6 +994,9 @@ namespace Echo
         int errorCode
     )
     {
+        const bool wasConnected =
+            IsConnected();
+
         CloseSockets();
         ResetTransferState();
 
@@ -986,5 +1009,11 @@ namespace Echo
             std::to_wstring(
                 errorCode
             );
+
+        if (wasConnected)
+        {
+            m_connectionLost =
+                true;
+        }
     }
 }

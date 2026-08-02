@@ -62,6 +62,10 @@ namespace Echo
             BuildWorldSnapshot()
             const noexcept;
 
+        GameMigrationState BuildMigrationState(
+            const NetworkWorldSnapshot& snapshot
+        ) const;
+
         void ApplyWorldSnapshot(
             const NetworkWorldSnapshot& snapshot
         );
@@ -72,6 +76,12 @@ namespace Echo
 
         void ResetNetworkGameState()
             noexcept;
+
+        void HandleNetworkConnectionLost();
+
+        void PromoteClientToHost();
+
+        void RestartHostListener();
 
         void HandleApplicationInput();
 
@@ -130,6 +140,12 @@ namespace Echo
         std::uint32_t
             m_latestReceivedServerTick =
             0;
+
+        GameMigrationState
+            m_latestMigrationState{};
+
+        bool m_hasMigrationState =
+            false;
 
         NetworkWorldSnapshot
             m_remoteInterpolationStart{};
