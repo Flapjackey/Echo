@@ -12,6 +12,7 @@
 #include "Input/Mouse.h"
 #include "Network/NetworkSession.h"
 #include "Network/NetworkGamePhase.h"
+#include "Network/NetworkIdentity.h"
 #include "Network/NetworkSystem.h"
 #include "Platform/Windows/Window.h"
 #include "UI/MainMenu.h"
@@ -83,6 +84,12 @@ namespace Echo
 
         void HandleNetworkConnectionLost();
 
+        void BeginHostHandshake();
+
+        void BeginClientHandshake();
+
+        void UpdateNetworkHandshake();
+
         void BeginHostSynchronization();
 
         void BeginClientSynchronization();
@@ -120,6 +127,27 @@ namespace Echo
 
         NetworkSystem m_networkSystem;
         NetworkSession m_networkSession;
+
+        SessionId m_sessionId =
+            InvalidSessionId;
+
+        PlayerId m_localPlayerId =
+            InvalidPlayerId;
+
+        PlayerId m_remotePlayerId =
+            InvalidPlayerId;
+
+        PlayerId m_hostPlayerId =
+            InvalidPlayerId;
+
+        std::uint32_t m_hostEpoch =
+            0;
+
+        bool m_connectionHelloQueued =
+            false;
+
+        bool m_sessionWelcomeQueued =
+            false;
 
         NetworkGamePhase m_networkGamePhase =
             NetworkGamePhase::Offline;

@@ -172,6 +172,7 @@
     <ClInclude Include="Source\Input\Keyboard.h" />
     <ClInclude Include="Source\Input\Mouse.h" />
     <ClInclude Include="Source\Network\NetworkGamePhase.h" />
+    <ClInclude Include="Source\Network\NetworkIdentity.h" />
     <ClInclude Include="Source\Network\NetworkProtocol.h" />
     <ClInclude Include="Source\Network\NetworkSession.h" />
     <ClInclude Include="Source\Network\NetworkSystem.h" />

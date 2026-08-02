@@ -295,6 +295,50 @@ namespace Echo
         FlushOutgoingData();
     }
 
+    void NetworkSession::QueueConnectionHello(
+        const NetworkConnectionHello& hello
+    ) noexcept
+    {
+        if (!IsConnected())
+        {
+            return;
+        }
+
+        NetworkPacket packet =
+            CreateConnectionHelloPacket(
+                hello,
+                m_nextSequence
+            );
+
+        ++m_nextSequence;
+
+        QueuePacket(
+            packet
+        );
+    }
+
+    void NetworkSession::QueueSessionWelcome(
+        const NetworkSessionWelcome& welcome
+    ) noexcept
+    {
+        if (!IsConnected())
+        {
+            return;
+        }
+
+        NetworkPacket packet =
+            CreateSessionWelcomePacket(
+                welcome,
+                m_nextSequence
+            );
+
+        ++m_nextSequence;
+
+        QueuePacket(
+            packet
+        );
+    }
+
     void NetworkSession::QueuePlayerInput(
         const NetworkPlayerInput& input
     ) noexcept
@@ -383,6 +427,44 @@ namespace Echo
         );
     }
 
+    bool NetworkSession::
+        TryConsumeConnectionHello(
+            NetworkConnectionHello& hello
+        ) noexcept
+    {
+        if (!m_hasReceivedConnectionHello)
+        {
+            return false;
+        }
+
+        hello =
+            m_latestReceivedConnectionHello;
+
+        m_hasReceivedConnectionHello =
+            false;
+
+        return true;
+    }
+
+    bool NetworkSession::
+        TryConsumeSessionWelcome(
+            NetworkSessionWelcome& welcome
+        ) noexcept
+    {
+        if (!m_hasReceivedSessionWelcome)
+        {
+            return false;
+        }
+
+        welcome =
+            m_latestReceivedSessionWelcome;
+
+        m_hasReceivedSessionWelcome =
+            false;
+
+        return true;
+    }
+
     bool NetworkSession::TryConsumePlayerInput(
         NetworkPlayerInput& input
     ) noexcept
@@ -446,6 +528,38 @@ namespace Echo
             false;
 
         return true;
+    }
+
+    void NetworkSession::StampPacketIdentity(
+        NetworkPacket& packet
+    ) const noexcept
+    {
+        SetNetworkPacketIdentity(
+            packet,
+            m_sessionId,
+            m_localPlayerId,
+            m_hostPlayerId,
+            m_hostEpoch
+        );
+    }
+
+    bool NetworkSession::
+        HasMatchingPacketIdentity(
+            const NetworkPacket& packet
+        ) const noexcept
+    {
+        return
+            m_sessionId !=
+            InvalidSessionId &&
+            m_hostPlayerId !=
+            InvalidPlayerId &&
+            m_hostEpoch != 0 &&
+            packet.sessionId ==
+            m_sessionId &&
+            packet.hostPlayerId ==
+            m_hostPlayerId &&
+            packet.hostEpoch ==
+            m_hostEpoch;
     }
 
     void NetworkSession::QueuePacket(
@@ -540,6 +654,26 @@ namespace Echo
 
         m_connectedEvent =
             false;
+    }
+
+    void NetworkSession::SetLocalIdentity(
+        SessionId sessionId,
+        PlayerId localPlayerId,
+        PlayerId hostPlayerId,
+        std::uint32_t hostEpoch
+    ) noexcept
+    {
+        m_sessionId =
+            sessionId;
+
+        m_localPlayerId =
+            localPlayerId;
+
+        m_hostPlayerId =
+            hostPlayerId;
+
+        m_hostEpoch =
+            hostEpoch;
     }
 
     NetworkSessionMode
@@ -962,8 +1096,86 @@ namespace Echo
                 return;
             }
 
+            const bool isHandshakePacket =
+                m_receivePacket.type ==
+                NetworkPacketType::
+                ConnectionHello ||
+                m_receivePacket.type ==
+                NetworkPacketType::
+                SessionWelcome;
+
+            if (!isHandshakePacket &&
+                !HasMatchingPacketIdentity(
+                    m_receivePacket
+                ))
+            {
+                SetError(
+                    L"Received packet from an invalid "
+                    L"session or host epoch.",
+                    0
+                );
+
+                return;
+            }
+
             switch (m_receivePacket.type)
             {
+                case NetworkPacketType::
+                ConnectionHello:
+                {
+                    NetworkConnectionHello hello{};
+
+                    if (!DecodeConnectionHelloPacket(
+                        m_receivePacket,
+                        hello
+                    ))
+                    {
+                        SetError(
+                            L"Failed to decode "
+                            L"connection hello.",
+                            0
+                        );
+
+                        return;
+                    }
+
+                    m_latestReceivedConnectionHello =
+                        hello;
+
+                    m_hasReceivedConnectionHello =
+                        true;
+
+                    break;
+                }
+
+                case NetworkPacketType::
+                SessionWelcome:
+                {
+                    NetworkSessionWelcome welcome{};
+
+                    if (!DecodeSessionWelcomePacket(
+                        m_receivePacket,
+                        welcome
+                    ))
+                    {
+                        SetError(
+                            L"Failed to decode "
+                            L"session welcome.",
+                            0
+                        );
+
+                        return;
+                    }
+
+                    m_latestReceivedSessionWelcome =
+                        welcome;
+
+                    m_hasReceivedSessionWelcome =
+                        true;
+
+                    break;
+                }
+
             case NetworkPacketType::PlayerInput:
             {
                 NetworkPlayerInput input{};
@@ -1072,6 +1284,18 @@ namespace Echo
             NetworkPacket{};
 
         m_receiveOffset = 0;
+
+        m_latestReceivedConnectionHello =
+            NetworkConnectionHello{};
+
+        m_hasReceivedConnectionHello =
+            false;
+
+        m_latestReceivedSessionWelcome =
+            NetworkSessionWelcome{};
+
+        m_hasReceivedSessionWelcome =
+            false;
 
         m_latestReceivedPlayerInput =
             NetworkPlayerInput{};

@@ -3,10 +3,12 @@
 #include "UI/PauseMenu.h"
 #include "UI/SettingsMenu.h"
 
+#include <random>
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <iomanip>
+#include <limits>
 #include <sstream>
 #include <utility>
 #include <vector>
@@ -60,6 +62,33 @@ namespace
 
     constexpr float TwoPi =
         Pi * 2.0f;
+
+    std::uint64_t GenerateRuntimeIdentifier()
+    {
+        static std::random_device entropy;
+
+        static std::mt19937_64 generator(
+            (
+                static_cast<std::uint64_t>(
+                    entropy()
+                    ) <<
+                32u
+                ) ^
+            static_cast<std::uint64_t>(
+                entropy()
+                )
+        );
+
+        std::uint64_t identifier = 0;
+
+        while (identifier == 0)
+        {
+            identifier =
+                generator();
+        }
+
+        return identifier;
+    }
 
     float InterpolateFloat(
         float start,
@@ -124,6 +153,8 @@ namespace Echo
             m_graphics
         )
     {
+        m_localPlayerId =
+            GenerateRuntimeIdentifier();
     }
 
     int Application::Run()
@@ -191,6 +222,16 @@ namespace Echo
                 UpdateConnectionRecovery(
                     frameTime
                 );
+            }
+
+            if (m_networkGamePhase ==
+                NetworkGamePhase::
+                HandshakingHost ||
+                m_networkGamePhase ==
+                NetworkGamePhase::
+                HandshakingClient)
+            {
+                UpdateNetworkHandshake();
             }
 
             if (m_networkGamePhase ==
@@ -524,6 +565,16 @@ namespace Echo
                 NetworkGamePhase::
                 ConnectionRecovery;
 
+            const bool isHandshakingHost =
+                m_networkGamePhase ==
+                NetworkGamePhase::
+                HandshakingHost;
+
+            const bool isHandshakingClient =
+                m_networkGamePhase ==
+                NetworkGamePhase::
+                HandshakingClient;
+
             const bool isSynchronizingHost =
                 m_networkGamePhase ==
                 NetworkGamePhase::
@@ -543,6 +594,8 @@ namespace Echo
                     ) &&
                 (
                     isConnectionRecovery ||
+                    isHandshakingHost ||
+                    isHandshakingClient ||
                     isSynchronizingHost ||
                     isSynchronizingClient
                     );
@@ -564,7 +617,23 @@ namespace Echo
                 const bool showTimer =
                     isConnectionRecovery;
 
-                if (isSynchronizingHost)
+                if (isHandshakingHost)
+                {
+                    title =
+                        L"PLAYER CONNECTED";
+
+                    message =
+                        L"Verifying session identity...";
+                }
+                else if (isHandshakingClient)
+                {
+                    title =
+                        L"CONNECTING";
+
+                    message =
+                        L"Joining the game session...";
+                }
+                else if (isSynchronizingHost)
                 {
                     title =
                         L"PLAYER CONNECTED";
@@ -658,13 +727,13 @@ namespace Echo
         {
         case ApplicationState::HostGame:
         {
-            BeginHostSynchronization();
+            BeginHostHandshake();
             break;
         }
 
         case ApplicationState::JoinGame:
         {
-            BeginClientSynchronization();
+            BeginClientHandshake();
             break;
         }
 
@@ -673,6 +742,253 @@ namespace Echo
             break;
         }
         }
+    }
+
+    void Application::BeginHostHandshake()
+    {
+        m_networkGamePhase =
+            NetworkGamePhase::
+            HandshakingHost;
+
+        m_connectionHelloQueued =
+            false;
+
+        m_sessionWelcomeQueued =
+            false;
+
+        m_latestRemotePlayerInput =
+            NetworkPlayerInput{};
+
+        m_connectionRecoveryOverlay.Reset();
+    }
+
+    void Application::BeginClientHandshake()
+    {
+        m_networkGamePhase =
+            NetworkGamePhase::
+            HandshakingClient;
+
+        m_connectionHelloQueued =
+            false;
+
+        m_sessionWelcomeQueued =
+            false;
+
+        m_playerInputSendAccumulator =
+            0.0;
+
+        m_connectionRecoveryOverlay.Reset();
+    }
+
+    void Application::UpdateNetworkHandshake()
+    {
+        if (!m_networkSession.IsConnected())
+        {
+            return;
+        }
+
+        if (m_networkGamePhase ==
+            NetworkGamePhase::
+            HandshakingHost)
+        {
+            if (!m_sessionWelcomeQueued)
+            {
+                NetworkConnectionHello hello{};
+
+                if (!m_networkSession.
+                    TryConsumeConnectionHello(
+                        hello
+                    ))
+                {
+                    return;
+                }
+
+                if (hello.playerId ==
+                    InvalidPlayerId)
+                {
+                    m_networkSession.Stop();
+
+                    m_networkGamePhase =
+                        NetworkGamePhase::Running;
+
+                    RestartHostListener();
+                    return;
+                }
+
+                const bool knowsAnotherSession =
+                    hello.knownSessionId !=
+                    InvalidSessionId &&
+                    hello.knownSessionId !=
+                    m_sessionId;
+
+                if (knowsAnotherSession)
+                {
+                    m_networkSession.Stop();
+
+                    m_networkGamePhase =
+                        NetworkGamePhase::Running;
+
+                    RestartHostListener();
+                    return;
+                }
+
+                m_remotePlayerId =
+                    hello.playerId;
+
+                NetworkSessionWelcome welcome{};
+
+                welcome.sessionId =
+                    m_sessionId;
+
+                welcome.hostPlayerId =
+                    m_hostPlayerId;
+
+                welcome.hostEpoch =
+                    m_hostEpoch;
+
+                welcome.assignedPlayerIndex =
+                    static_cast<std::uint32_t>(
+                        m_remoteNetworkPlayerIndex
+                        );
+
+                welcome.serverTick =
+                    m_serverTick;
+
+                m_networkSession.
+                    QueueSessionWelcome(
+                        welcome
+                    );
+
+                m_sessionWelcomeQueued =
+                    true;
+
+                return;
+            }
+
+            if (!m_networkSession.
+                IsOutgoingIdle())
+            {
+                return;
+            }
+
+            m_sessionWelcomeQueued =
+                false;
+
+            BeginHostSynchronization();
+            return;
+        }
+
+        if (m_networkGamePhase !=
+            NetworkGamePhase::
+            HandshakingClient)
+        {
+            return;
+        }
+
+        if (!m_connectionHelloQueued)
+        {
+            NetworkConnectionHello hello{};
+
+            hello.knownSessionId =
+                m_sessionId;
+
+            hello.playerId =
+                m_localPlayerId;
+
+            hello.knownHostEpoch =
+                m_hostEpoch;
+
+            m_networkSession.
+                QueueConnectionHello(
+                    hello
+                );
+
+            m_connectionHelloQueued =
+                true;
+
+            return;
+        }
+
+        NetworkSessionWelcome welcome{};
+
+        if (!m_networkSession.
+            TryConsumeSessionWelcome(
+                welcome
+            ))
+        {
+            return;
+        }
+
+        const bool hasDifferentSession =
+            m_sessionId !=
+            InvalidSessionId &&
+            welcome.sessionId !=
+            m_sessionId;
+
+        const bool hostIsOlder =
+            m_sessionId ==
+            welcome.sessionId &&
+            m_hostEpoch != 0 &&
+            welcome.hostEpoch <
+            m_hostEpoch;
+
+        if (hasDifferentSession ||
+            hostIsOlder)
+        {
+            m_networkSession.Stop();
+
+            BeginConnectionRecovery();
+            return;
+        }
+
+        m_sessionId =
+            welcome.sessionId;
+
+        m_hostPlayerId =
+            welcome.hostPlayerId;
+
+        m_remotePlayerId =
+            welcome.hostPlayerId;
+
+        m_hostEpoch =
+            welcome.hostEpoch;
+
+        m_latestReceivedServerTick =
+            welcome.serverTick;
+
+        const std::size_t assignedPlayerIndex =
+            static_cast<std::size_t>(
+                welcome.assignedPlayerIndex
+                );
+
+        const std::size_t remotePlayerIndex =
+            (
+                assignedPlayerIndex +
+                1
+                ) %
+            NetworkPlayerCount;
+
+        SetNetworkPlayerOwnership(
+            assignedPlayerIndex,
+            remotePlayerIndex
+        );
+
+        // Use the identity received from the
+        // authoritative host.
+        m_networkSession.SetLocalIdentity(
+            m_sessionId,
+            m_localPlayerId,
+            m_hostPlayerId,
+            m_hostEpoch
+        );
+
+        m_connectionHelloQueued =
+            false;
+
+        m_sessionWelcomeQueued =
+            false;
+
+        BeginClientSynchronization();
     }
 
     void Application::BeginHostSynchronization()
@@ -1000,17 +1316,66 @@ namespace Echo
             return;
         }
 
-        // Preserve the latest authoritative backup
-        // before resetting client-side network state.
+        if (m_sessionId ==
+            InvalidSessionId ||
+            m_localPlayerId ==
+            InvalidPlayerId ||
+            m_hostPlayerId ==
+            InvalidPlayerId ||
+            m_hostEpoch == 0)
+        {
+            return;
+        }
+
+        const std::uint32_t maximumHostEpoch =
+            std::numeric_limits<
+            std::uint32_t
+            >::max();
+
+        // Wrapping the epoch back to 1 would make
+        // the new host look older than previous hosts.
+        if (m_hostEpoch ==
+            maximumHostEpoch)
+        {
+            return;
+        }
+
+        // Preserve the authoritative world backup.
         const GameMigrationState migrationState =
             m_latestMigrationState;
 
         const std::uint32_t restoredServerTick =
             m_latestReceivedServerTick;
 
+        // Preserve session identity before
+        // ResetNetworkGameState clears runtime data.
+        const SessionId preservedSessionId =
+            m_sessionId;
+
+        const PlayerId previousHostPlayerId =
+            m_hostPlayerId;
+
+        const std::uint32_t promotedHostEpoch =
+            m_hostEpoch + 1;
+
         m_networkSession.Stop();
 
         ResetNetworkGameState();
+
+        // Restore the same game session.
+        m_sessionId =
+            preservedSessionId;
+
+        // The former host becomes the remote player.
+        m_remotePlayerId =
+            previousHostPlayerId;
+
+        // This process is now the authoritative host.
+        m_hostPlayerId =
+            m_localPlayerId;
+
+        m_hostEpoch =
+            promotedHostEpoch;
 
         m_gameSession.RestoreMigrationState(
             migrationState
@@ -1020,10 +1385,17 @@ namespace Echo
             restoredServerTick;
 
         // Player ownership is intentionally preserved.
-        // The former client continues controlling
-        // the same player after becoming the host.
+        // The former Join remains the owner of the same
+        // player after becoming Host.
         m_latestRemotePlayerInput =
             NetworkPlayerInput{};
+
+        m_networkSession.SetLocalIdentity(
+            m_sessionId,
+            m_localPlayerId,
+            m_hostPlayerId,
+            m_hostEpoch
+        );
 
         m_networkSession.StartHost(
             LocalNetworkPort
@@ -1037,6 +1409,12 @@ namespace Echo
 
         m_reconnectAttemptAccumulator =
             0.0;
+
+        m_connectionHelloQueued =
+            false;
+
+        m_sessionWelcomeQueued =
+            false;
 
         m_checkpointQueued =
             false;
@@ -1113,6 +1491,33 @@ namespace Echo
                     InitialClientPlayerIndex
                 );
 
+                // Create a new identity for this
+                // authoritative game session.
+                m_sessionId =
+                    GenerateRuntimeIdentifier();
+
+                m_remotePlayerId =
+                    InvalidPlayerId;
+
+                m_hostPlayerId =
+                    m_localPlayerId;
+
+                m_hostEpoch =
+                    1;
+
+                m_networkSession.SetLocalIdentity(
+                    m_sessionId,
+                    m_localPlayerId,
+                    m_hostPlayerId,
+                    m_hostEpoch
+                );
+
+                m_connectionHelloQueued =
+                    false;
+
+                m_sessionWelcomeQueued =
+                    false;
+
                 m_networkSession.StartHost(
                     LocalNetworkPort
                 );
@@ -1138,17 +1543,48 @@ namespace Echo
                     InitialHostPlayerIndex
                 );
 
-                // Send the first command immediately
-                // after the connection is established.
+                // A new client does not know the session
+                // identity until SessionWelcome arrives.
+                m_sessionId =
+                    InvalidSessionId;
+
+                m_remotePlayerId =
+                    InvalidPlayerId;
+
+                m_hostPlayerId =
+                    InvalidPlayerId;
+
+                m_hostEpoch =
+                    0;
+
+                // The process already has its permanent
+                // runtime PlayerId, generated in the
+                // Application constructor.
+                m_networkSession.SetLocalIdentity(
+                    m_sessionId,
+                    m_localPlayerId,
+                    m_hostPlayerId,
+                    m_hostEpoch
+                );
+
+                // Normal input must not be sent before
+                // the handshake and checkpoint complete.
                 m_playerInputSendAccumulator =
-                    PlayerInputSendInterval;
+                    0.0;
+
+                m_connectionHelloQueued =
+                    false;
+
+                m_sessionWelcomeQueued =
+                    false;
+
+                m_networkGamePhase =
+                    NetworkGamePhase::
+                    HandshakingClient;
 
                 m_networkSession.StartClient(
                     LocalNetworkPort
                 );
-
-                m_networkGamePhase =
-                    NetworkGamePhase::Running;
 
                 EnterState(
                     ApplicationState::JoinGame
@@ -1255,36 +1691,35 @@ namespace Echo
         case ApplicationState::HostGame:
         case ApplicationState::JoinGame:
         {
+            if (m_networkGamePhase ==
+                NetworkGamePhase::
+                ConnectionRecovery)
+            {
+                const bool canContinueSolo =
+                    m_applicationState ==
+                    ApplicationState::JoinGame &&
+                    m_hasMigrationState;
+
+                const ConnectionRecoveryAction action =
+                    m_connectionRecoveryOverlay.Update(
+                        m_keyboard,
+                        m_mouse,
+                        m_window,
+                        canContinueSolo
+                    );
+
+                if (action ==
+                    ConnectionRecoveryAction::
+                    ContinueSolo)
+                {
+                    PromoteClientToHost();
+                    break;
+                }
+            }
+
             if (m_keyboard.WasPressed(
                 Key::Escape))
             {
-
-                if (m_networkGamePhase ==
-                    NetworkGamePhase::
-                    ConnectionRecovery)
-                {
-                    const bool canContinueSolo =
-                        m_applicationState ==
-                        ApplicationState::JoinGame &&
-                        m_hasMigrationState;
-
-                    const ConnectionRecoveryAction action =
-                        m_connectionRecoveryOverlay.Update(
-                            m_keyboard,
-                            m_mouse,
-                            m_window,
-                            canContinueSolo
-                        );
-
-                    if (action ==
-                        ConnectionRecoveryAction::
-                        ContinueSolo)
-                    {
-                        PromoteClientToHost();
-                        break;
-                    }
-                }
-
                 m_networkSession.Stop();
 
                 ResetNetworkGameState();
@@ -1482,6 +1917,8 @@ namespace Echo
                 ? L"Ready"
                 : L"Waiting"
                 )
+            << L" | Epoch: "
+            << m_hostEpoch
             << L" | Net: "
             << m_networkSession.
             GetStatusMessage();
@@ -2341,6 +2778,12 @@ namespace Echo
             false;
 
         m_resumeQueued =
+            false;
+
+        m_connectionHelloQueued =
+            false;
+
+        m_sessionWelcomeQueued =
             false;
 
         m_connectionRecoveryOverlay.Reset();

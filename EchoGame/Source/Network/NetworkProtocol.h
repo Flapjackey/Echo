@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Core/EntityId.h"
+#include "Network/NetworkIdentity.h"
 
 #include <array>
 #include <cstddef>
@@ -88,7 +89,10 @@ namespace Echo
         WorldSnapshot = 2,
 
         CheckpointApplied = 3,
-        ResumeGame = 4
+        ResumeGame = 4,
+
+        ConnectionHello = 5,
+        SessionWelcome = 6
     };
 
     struct NetworkPacket final
@@ -97,7 +101,7 @@ namespace Echo
             ExpectedMagic = 0x4543484F;
 
         static constexpr std::uint16_t
-            ExpectedVersion = 8;
+            ExpectedVersion = 9;
 
         std::uint32_t magic =
             ExpectedMagic;
@@ -110,6 +114,18 @@ namespace Echo
 
         // Transport-level packet sequence.
         std::uint32_t sequence = 0;
+
+        // Shared session identity.
+        std::uint32_t hostEpoch = 0;
+
+        SessionId sessionId =
+            InvalidSessionId;
+
+        PlayerId senderPlayerId =
+            InvalidPlayerId;
+
+        PlayerId hostPlayerId =
+            InvalidPlayerId;
 
         // Player input payload.
         std::uint32_t inputSequence = 0;
@@ -158,7 +174,7 @@ namespace Echo
     };
 
     static_assert(
-        sizeof(NetworkPacket) == 732,
+        sizeof(NetworkPacket) == 760,
         "Unexpected NetworkPacket size."
         );
 
@@ -178,6 +194,27 @@ namespace Echo
             NetworkPacket::ExpectedMagic &&
             packet.version ==
             NetworkPacket::ExpectedVersion;
+    }
+
+    inline void SetNetworkPacketIdentity(
+        NetworkPacket& packet,
+        SessionId sessionId,
+        PlayerId senderPlayerId,
+        PlayerId hostPlayerId,
+        std::uint32_t hostEpoch
+    ) noexcept
+    {
+        packet.sessionId =
+            sessionId;
+
+        packet.senderPlayerId =
+            senderPlayerId;
+
+        packet.hostPlayerId =
+            hostPlayerId;
+
+        packet.hostEpoch =
+            hostEpoch;
     }
 
     inline NetworkPacket
@@ -236,6 +273,136 @@ namespace Echo
             sequence;
 
         return packet;
+    }
+
+    inline NetworkPacket
+        CreateConnectionHelloPacket(
+            const NetworkConnectionHello& hello,
+            std::uint32_t sequence
+        ) noexcept
+    {
+        NetworkPacket packet{};
+
+        packet.type =
+            NetworkPacketType::
+            ConnectionHello;
+
+        packet.sequence =
+            sequence;
+
+        packet.sessionId =
+            hello.knownSessionId;
+
+        packet.senderPlayerId =
+            hello.playerId;
+
+        packet.hostEpoch =
+            hello.knownHostEpoch;
+
+        return packet;
+    }
+
+    inline bool DecodeConnectionHelloPacket(
+        const NetworkPacket& packet,
+        NetworkConnectionHello& hello
+    ) noexcept
+    {
+        if (!HasValidNetworkHeader(packet) ||
+            packet.type !=
+            NetworkPacketType::
+            ConnectionHello ||
+            packet.senderPlayerId ==
+            InvalidPlayerId)
+        {
+            return false;
+        }
+
+        hello.knownSessionId =
+            packet.sessionId;
+
+        hello.playerId =
+            packet.senderPlayerId;
+
+        hello.knownHostEpoch =
+            packet.hostEpoch;
+
+        return true;
+    }
+
+    inline NetworkPacket
+        CreateSessionWelcomePacket(
+            const NetworkSessionWelcome& welcome,
+            std::uint32_t sequence
+        ) noexcept
+    {
+        NetworkPacket packet{};
+
+        packet.type =
+            NetworkPacketType::
+            SessionWelcome;
+
+        packet.sequence =
+            sequence;
+
+        packet.sessionId =
+            welcome.sessionId;
+
+        packet.senderPlayerId =
+            welcome.hostPlayerId;
+
+        packet.hostPlayerId =
+            welcome.hostPlayerId;
+
+        packet.hostEpoch =
+            welcome.hostEpoch;
+
+        packet.assignedPlayerIndex =
+            welcome.assignedPlayerIndex;
+
+        packet.serverTick =
+            welcome.serverTick;
+
+        return packet;
+    }
+
+    inline bool DecodeSessionWelcomePacket(
+        const NetworkPacket& packet,
+        NetworkSessionWelcome& welcome
+    ) noexcept
+    {
+        if (!HasValidNetworkHeader(packet) ||
+            packet.type !=
+            NetworkPacketType::
+            SessionWelcome ||
+            packet.sessionId ==
+            InvalidSessionId ||
+            packet.hostPlayerId ==
+            InvalidPlayerId ||
+            packet.hostEpoch == 0 ||
+            packet.assignedPlayerIndex >=
+            static_cast<std::uint32_t>(
+                NetworkPlayerCount
+                ))
+        {
+            return false;
+        }
+
+        welcome.sessionId =
+            packet.sessionId;
+
+        welcome.hostPlayerId =
+            packet.hostPlayerId;
+
+        welcome.hostEpoch =
+            packet.hostEpoch;
+
+        welcome.assignedPlayerIndex =
+            packet.assignedPlayerIndex;
+
+        welcome.serverTick =
+            packet.serverTick;
+
+        return true;
     }
 
     inline bool DecodePlayerInputPacket(
