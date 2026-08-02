@@ -94,6 +94,12 @@ namespace Echo
             : 0.0f;
     }
 
+    void Projectile::Expire() noexcept
+    {
+        m_remainingLifetime =
+            0.0f;
+    }
+
     EntityId Projectile::GetEntityId()
         const noexcept
     {
@@ -141,5 +147,11 @@ namespace Echo
         const noexcept
     {
         return m_height;
+    }
+
+    float Projectile::GetCollisionRadius()
+        const noexcept
+    {
+        return m_collisionRadius;
     }
 }

@@ -1,6 +1,7 @@
 #include "Game/GameSession.h"
 
 #include "Game/World/Levels/TestArena.h"
+#include "Game/World/WorldCollision.h"
 
 #include <algorithm>
 #include <cmath>
@@ -48,9 +49,45 @@ namespace Echo
             playerIndex < PlayerCount;
             ++playerIndex)
         {
-            m_players[playerIndex].Update(
+            Player& player =
+                m_players[playerIndex];
+
+            const float previousPositionX =
+                player.GetPositionX();
+
+            const float previousPositionY =
+                player.GetPositionY();
+
+            // Player calculates normalized movement
+            // and updates its aim rotation.
+            player.Update(
                 playerCommands[playerIndex],
                 deltaTime
+            );
+
+            const float desiredMovementX =
+                player.GetPositionX() -
+                previousPositionX;
+
+            const float desiredMovementY =
+                player.GetPositionY() -
+                previousPositionY;
+
+            const ResolvedWorldPosition
+                resolvedPosition =
+                MoveCircleAgainstLevel(
+                    m_level,
+                    previousPositionX,
+                    previousPositionY,
+                    desiredMovementX,
+                    desiredMovementY,
+                    player.GetCollisionRadius()
+                );
+
+            player.SetNetworkState(
+                resolvedPosition.positionX,
+                resolvedPosition.positionY,
+                player.GetRotation()
             );
         }
 
@@ -64,8 +101,12 @@ namespace Echo
         {
             if (fireCooldown > 0.0f)
             {
-                fireCooldown -=
-                    fixedDeltaTime;
+                fireCooldown =
+                    std::max(
+                        fireCooldown -
+                        fixedDeltaTime,
+                        0.0f
+                    );
             }
         }
 
@@ -81,30 +122,8 @@ namespace Echo
             }
         }
 
-        for (Projectile& projectile :
-            m_projectiles)
-        {
-            projectile.Update(
-                deltaTime
-            );
-        }
-
-        const auto firstExpiredProjectile =
-            std::remove_if(
-                m_projectiles.begin(),
-                m_projectiles.end(),
-                [](
-                    const Projectile& projectile
-                    )
-                {
-                    return
-                        !projectile.IsAlive();
-                }
-            );
-
-        m_projectiles.erase(
-            firstExpiredProjectile,
-            m_projectiles.end()
+        UpdateProjectiles(
+            deltaTime
         );
     }
 
@@ -173,13 +192,61 @@ namespace Echo
         double deltaTime
     ) noexcept
     {
+        UpdateProjectiles(
+            deltaTime
+        );
+    }
+
+    void GameSession::UpdateProjectiles(
+        double deltaTime
+    ) noexcept
+    {
         for (Projectile& projectile :
             m_projectiles)
         {
+            const float previousPositionX =
+                projectile.GetPositionX();
+
+            const float previousPositionY =
+                projectile.GetPositionY();
+
             projectile.Update(
                 deltaTime
             );
+
+            const bool hitLevel =
+                MovingCircleHitsLevel(
+                    m_level,
+                    previousPositionX,
+                    previousPositionY,
+                    projectile.GetPositionX(),
+                    projectile.GetPositionY(),
+                    projectile.GetCollisionRadius()
+                );
+
+            if (hitLevel)
+            {
+                projectile.Expire();
+            }
         }
+
+        const auto firstExpiredProjectile =
+            std::remove_if(
+                m_projectiles.begin(),
+                m_projectiles.end(),
+                [](
+                    const Projectile& projectile
+                    )
+                {
+                    return
+                        !projectile.IsAlive();
+                }
+            );
+
+        m_projectiles.erase(
+            firstExpiredProjectile,
+            m_projectiles.end()
+        );
     }
 
     EntityId GameSession::

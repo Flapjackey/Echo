@@ -133,4 +133,10 @@ namespace Echo
     {
         return m_height;
     }
+
+    float Player::GetCollisionRadius()
+        const noexcept
+    {
+        return m_collisionRadius;
+    }
 }

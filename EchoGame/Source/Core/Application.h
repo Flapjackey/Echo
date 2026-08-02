@@ -5,6 +5,7 @@
 #include "Core/GameSettings.h"
 #include "Game/GameSession.h"
 #include "Game/PlayerCommand.h"
+#include "Graphics/Camera2D.h"
 #include "Graphics/GraphicsDevice.h"
 #include "Graphics/QuadRenderer.h"
 #include "Graphics/TextRenderer.h"
@@ -38,6 +39,16 @@ namespace Echo
             playerCommands,
             double deltaTime
         );
+
+        void UpdateGameplayCamera(
+            double deltaTime
+        ) noexcept;
+
+        void ResetGameplayCamera()
+            noexcept;
+
+        std::size_t GetCameraPlayerIndex()
+            const noexcept;
 
         GameSession::PlayerCommands
             BuildLocalPlayerCommands()
@@ -226,6 +237,8 @@ namespace Echo
         GraphicsDevice m_graphics;
         QuadRenderer m_quadRenderer;
         TextRenderer m_textRenderer;
+
+        Camera2D m_gameplayCamera;
 
         GameSession m_gameSession;
 

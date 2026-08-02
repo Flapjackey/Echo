@@ -348,11 +348,15 @@ namespace Echo
             return;
         }
 
-        const NetworkPacket packet =
+        NetworkPacket packet =
             CreatePlayerInputPacket(
                 input,
                 m_nextSequence
             );
+
+        StampPacketIdentity(
+            packet
+        );
 
         ++m_nextSequence;
 
@@ -370,11 +374,15 @@ namespace Echo
             return;
         }
 
-        const NetworkPacket packet =
+        NetworkPacket packet =
             CreateWorldSnapshotPacket(
                 snapshot,
                 m_nextSequence
             );
+
+        StampPacketIdentity(
+            packet
+        );
 
         ++m_nextSequence;
 
@@ -391,12 +399,16 @@ namespace Echo
             return;
         }
 
-        const NetworkPacket packet =
+        NetworkPacket packet =
             CreateControlPacket(
                 NetworkPacketType::
                 CheckpointApplied,
                 m_nextSequence
             );
+
+        StampPacketIdentity(
+            packet
+        );
 
         ++m_nextSequence;
 
@@ -413,12 +425,16 @@ namespace Echo
             return;
         }
 
-        const NetworkPacket packet =
+        NetworkPacket packet =
             CreateControlPacket(
                 NetworkPacketType::
                 ResumeGame,
                 m_nextSequence
             );
+
+        StampPacketIdentity(
+            packet
+        );
 
         ++m_nextSequence;
 

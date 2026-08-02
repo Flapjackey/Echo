@@ -36,6 +36,9 @@ namespace Echo
         float GetWidth() const noexcept;
         float GetHeight() const noexcept;
 
+        float GetCollisionRadius()
+            const noexcept;
+
     private:
         float m_positionX = 0.0f;
         float m_positionY = 0.0f;
@@ -46,5 +49,8 @@ namespace Echo
 
         float m_width = 0.50f;
         float m_height = 0.22f;
+
+        float m_collisionRadius =
+            0.16f;
     };
 }
