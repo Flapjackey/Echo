@@ -18,6 +18,7 @@
 #include "UI/SettingsMenu.h"
 
 #include <cstddef>
+#include <cstdint>
 
 namespace Echo
 {
@@ -60,6 +61,9 @@ namespace Echo
             const NetworkWorldSnapshot& snapshot
         );
 
+        void ResetNetworkGameState()
+            noexcept;
+
         void HandleApplicationInput();
 
         void EnterState(
@@ -85,7 +89,35 @@ namespace Echo
         NetworkPlayerInput
             m_latestRemotePlayerInput{};
 
-        bool m_hasReceivedWorldSnapshot = false;
+        double m_playerInputSendAccumulator =
+            0.0;
+
+        double m_remoteInputAge =
+            0.0;
+
+        std::uint32_t m_nextLocalInputSequence =
+            1;
+
+        std::uint32_t m_clientTick =
+            0;
+
+        std::uint32_t m_serverTick =
+            0;
+
+        std::uint32_t
+            m_lastProcessedRemoteInputSequence =
+            0;
+
+        std::uint32_t
+            m_lastAcknowledgedInputSequence =
+            0;
+
+        std::uint32_t
+            m_latestReceivedServerTick =
+            0;
+
+        bool m_hasReceivedWorldSnapshot =
+            false;
 
         Window m_window;
 

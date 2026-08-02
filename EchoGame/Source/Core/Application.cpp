@@ -22,6 +22,18 @@ namespace
     constexpr std::uint16_t
         LocalNetworkPort =
         27015;
+
+    constexpr double
+        PlayerInputSendInterval =
+        1.0 / 60.0;
+
+    constexpr std::uint32_t
+        SnapshotTickInterval =
+        2;
+
+    constexpr double
+        RemoteInputTimeout =
+        0.25;
 }
 
 namespace Echo
@@ -98,9 +110,34 @@ namespace Echo
                 ApplicationState::JoinGame &&
                 m_networkSession.IsConnected())
             {
-                m_networkSession.QueuePlayerInput(
-                    BuildLocalNetworkInput()
-                );
+                m_playerInputSendAccumulator +=
+                    frameTime;
+
+                if (m_playerInputSendAccumulator >=
+                    PlayerInputSendInterval)
+                {
+                    m_playerInputSendAccumulator =
+                        std::fmod(
+                            m_playerInputSendAccumulator,
+                            PlayerInputSendInterval
+                        );
+
+                    NetworkPlayerInput localInput =
+                        BuildLocalNetworkInput();
+
+                    localInput.inputSequence =
+                        m_nextLocalInputSequence;
+
+                    localInput.clientTick =
+                        m_clientTick;
+
+                    ++m_nextLocalInputSequence;
+                    ++m_clientTick;
+
+                    m_networkSession.QueuePlayerInput(
+                        localInput
+                    );
+                }
 
                 NetworkWorldSnapshot receivedSnapshot{};
 
@@ -117,6 +154,11 @@ namespace Echo
                         true;
                 }
             }
+            else
+            {
+                m_playerInputSendAccumulator =
+                    0.0;
+            }
 
             if (m_applicationState ==
                 ApplicationState::HostGame &&
@@ -131,7 +173,27 @@ namespace Echo
                 {
                     m_latestRemotePlayerInput =
                         receivedInput;
+
+                    m_remoteInputAge =
+                        0.0;
                 }
+                else
+                {
+                    m_remoteInputAge +=
+                        frameTime;
+                }
+
+                if (m_remoteInputAge >=
+                    RemoteInputTimeout)
+                {
+                    m_latestRemotePlayerInput =
+                        NetworkPlayerInput{};
+                }
+            }
+            else
+            {
+                m_remoteInputAge =
+                    0.0;
             }
 
             const bool isConnectedHost =
@@ -143,6 +205,9 @@ namespace Echo
                 m_applicationState ==
                 ApplicationState::LocalGame ||
                 isConnectedHost;
+
+            bool shouldSendWorldSnapshot =
+                false;
 
             if (isSimulationRunning)
             {
@@ -173,6 +238,27 @@ namespace Echo
 
                     accumulatedTime -=
                         fixedDeltaTime;
+
+                    if (isConnectedHost)
+                    {
+                        ++m_serverTick;
+
+                        if (m_latestRemotePlayerInput.
+                            inputSequence != 0)
+                        {
+                            m_lastProcessedRemoteInputSequence =
+                                m_latestRemotePlayerInput.
+                                inputSequence;
+                        }
+
+                        if (m_serverTick %
+                            SnapshotTickInterval ==
+                            0)
+                        {
+                            shouldSendWorldSnapshot =
+                                true;
+                        }
+                    }
                 }
             }
             else
@@ -182,12 +268,16 @@ namespace Echo
                 accumulatedTime = 0.0;
             }
 
-            if (isConnectedHost)
+            if (isConnectedHost &&
+                shouldSendWorldSnapshot)
             {
                 m_networkSession.QueueWorldSnapshot(
                     BuildWorldSnapshot()
                 );
             }
+
+            // Send data queued during the current frame.
+            m_networkSession.FlushOutgoing();
 
             switch (m_applicationState)
             {
@@ -384,8 +474,7 @@ namespace Echo
             {
                 m_gameSession.Reset();
 
-                m_latestRemotePlayerInput =
-                    NetworkPlayerInput{};
+                ResetNetworkGameState();
 
                 m_networkSession.StartHost(
                     LocalNetworkPort
@@ -402,8 +491,12 @@ namespace Echo
             {
                 m_gameSession.Reset();
 
-                m_hasReceivedWorldSnapshot =
-                    false;
+                ResetNetworkGameState();
+
+                // Send the first command immediately
+                // after the connection is established.
+                m_playerInputSendAccumulator =
+                    PlayerInputSendInterval;
 
                 m_networkSession.StartClient(
                     LocalNetworkPort
@@ -519,6 +612,8 @@ namespace Echo
             {
 
                 m_networkSession.Stop();
+
+                ResetNetworkGameState();
 
                 m_mainMenu.Reset();
 
@@ -1055,6 +1150,12 @@ namespace Echo
 
         NetworkWorldSnapshot snapshot{};
 
+        snapshot.serverTick =
+            m_serverTick;
+
+        snapshot.lastProcessedInputSequence =
+            m_lastProcessedRemoteInputSequence;
+
         for (std::size_t playerIndex = 0;
             playerIndex < NetworkPlayerCount;
             ++playerIndex)
@@ -1128,6 +1229,12 @@ namespace Echo
             "Game and network player counts differ."
             );
 
+        m_latestReceivedServerTick =
+            snapshot.serverTick;
+
+        m_lastAcknowledgedInputSequence =
+            snapshot.lastProcessedInputSequence;
+
         for (std::size_t playerIndex = 0;
             playerIndex < NetworkPlayerCount;
             ++playerIndex)
@@ -1191,6 +1298,40 @@ namespace Echo
                 projectiles
             )
         );
+    }
+
+    void Application::ResetNetworkGameState()
+        noexcept
+    {
+        m_latestRemotePlayerInput =
+            NetworkPlayerInput{};
+
+        m_playerInputSendAccumulator =
+            0.0;
+
+        m_remoteInputAge =
+            0.0;
+
+        m_nextLocalInputSequence =
+            1;
+
+        m_clientTick =
+            0;
+
+        m_serverTick =
+            0;
+
+        m_lastProcessedRemoteInputSequence =
+            0;
+
+        m_lastAcknowledgedInputSequence =
+            0;
+
+        m_latestReceivedServerTick =
+            0;
+
+        m_hasReceivedWorldSnapshot =
+            false;
     }
 
     void Application::UpdateStatistics(

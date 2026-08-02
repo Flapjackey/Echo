@@ -282,6 +282,16 @@ namespace Echo
         }
     }
 
+    void NetworkSession::FlushOutgoing()
+    {
+        if (!IsConnected())
+        {
+            return;
+        }
+
+        FlushOutgoingData();
+    }
+
     void NetworkSession::QueuePlayerInput(
         const NetworkPlayerInput& input
     ) noexcept
@@ -629,8 +639,6 @@ namespace Echo
 
     void NetworkSession::UpdateConnectedState()
     {
-        FlushOutgoingData();
-
         if (!IsConnected())
         {
             return;

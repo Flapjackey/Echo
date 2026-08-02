@@ -57,6 +57,8 @@ namespace Echo
 
         void Update();
 
+        void FlushOutgoing();
+
         void Stop();
 
         void QueuePlayerInput(
