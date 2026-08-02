@@ -193,6 +193,16 @@ namespace Echo
                 );
             }
 
+            if (m_networkGamePhase ==
+                NetworkGamePhase::
+                SynchronizingHost ||
+                m_networkGamePhase ==
+                NetworkGamePhase::
+                SynchronizingClient)
+            {
+                UpdateNetworkSynchronization();
+            }
+
             const bool networkGameplayRunning =
                 m_networkGamePhase ==
                 NetworkGamePhase::Running;
@@ -509,84 +519,79 @@ namespace Echo
             }
             }
 
-            if (m_networkGamePhase ==
+            const bool isConnectionRecovery =
+                m_networkGamePhase ==
                 NetworkGamePhase::
-                ConnectionRecovery &&
+                ConnectionRecovery;
+
+            const bool isSynchronizingHost =
+                m_networkGamePhase ==
+                NetworkGamePhase::
+                SynchronizingHost;
+
+            const bool isSynchronizingClient =
+                m_networkGamePhase ==
+                NetworkGamePhase::
+                SynchronizingClient;
+
+            const bool isNetworkOverlayVisible =
                 (
                     m_applicationState ==
                     ApplicationState::HostGame ||
                     m_applicationState ==
                     ApplicationState::JoinGame
-                    ))
+                    ) &&
+                (
+                    isConnectionRecovery ||
+                    isSynchronizingHost ||
+                    isSynchronizingClient
+                    );
+
+            if (isNetworkOverlayVisible)
             {
                 const bool canContinueSolo =
+                    isConnectionRecovery &&
                     m_applicationState ==
                     ApplicationState::JoinGame &&
                     m_hasMigrationState;
 
-                const bool isConnectionRecovery =
-                    m_networkGamePhase ==
-                    NetworkGamePhase::
-                    ConnectionRecovery;
+                const wchar_t* title =
+                    L"CONNECTION LOST";
 
-                const bool isSynchronizingHost =
-                    m_networkGamePhase ==
-                    NetworkGamePhase::
-                    SynchronizingHost;
+                const wchar_t* message =
+                    L"Restoring the game session...";
 
-                const bool isSynchronizingClient =
-                    m_networkGamePhase ==
-                    NetworkGamePhase::
-                    SynchronizingClient;
+                const bool showTimer =
+                    isConnectionRecovery;
 
-                if (isConnectionRecovery ||
-                    isSynchronizingHost ||
-                    isSynchronizingClient)
+                if (isSynchronizingHost)
                 {
-                    const bool canContinueSolo =
-                        isConnectionRecovery &&
-                        m_applicationState ==
-                        ApplicationState::JoinGame &&
-                        m_hasMigrationState;
+                    title =
+                        L"PLAYER CONNECTED";
 
-                    const wchar_t* title =
-                        L"CONNECTION LOST";
-
-                    const wchar_t* message =
-                        L"Restoring the game session...";
-
-                    bool showTimer =
-                        isConnectionRecovery;
-
-                    if (isSynchronizingHost)
-                    {
-                        title =
-                            L"PLAYER CONNECTED";
-
-                        message =
-                            L"Sending current game state...";
-                    }
-                    else if (isSynchronizingClient)
-                    {
-                        title =
-                            L"CONNECTING";
-
-                        message =
-                            L"Synchronizing game state...";
-                    }
-
-                    m_connectionRecoveryOverlay.Render(
-                        m_textRenderer,
-                        m_window,
-                        m_connectionRecoveryRemaining,
-                        showTimer,
-                        canContinueSolo,
-                        title,
-                        message,
-                        m_networkSession.
-                        GetStatusMessage()
-                    );
+                    message =
+                        L"Sending current game state...";
                 }
+                else if (isSynchronizingClient)
+                {
+                    title =
+                        L"CONNECTING";
+
+                    message =
+                        L"Synchronizing game state...";
+                }
+
+                m_connectionRecoveryOverlay.Render(
+                    m_textRenderer,
+                    m_window,
+                    m_connectionRecoveryRemaining,
+                    showTimer,
+                    canContinueSolo,
+                    title,
+                    message,
+                    m_networkSession.
+                    GetStatusMessage()
+                );
             }
 
             m_graphics.EndFrame(
@@ -776,8 +781,7 @@ namespace Echo
             }
 
             m_networkGamePhase =
-                NetworkGamePhase::
-                SynchronizingClient;
+                NetworkGamePhase::Running;
 
             m_checkpointQueued =
                 false;
