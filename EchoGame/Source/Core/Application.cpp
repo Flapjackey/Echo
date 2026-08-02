@@ -53,6 +53,12 @@ namespace
         ReconnectAttemptInterval =
         1.0;
 
+    constexpr float CameraMouseLeadFactor =
+        0.38f;
+
+    constexpr float MaximumCameraLeadDistance =
+        0.65f;
+
     constexpr double
         RemotePlayerInterpolationDuration =
         1.0 / 30.0;
@@ -247,6 +253,26 @@ namespace Echo
             const bool networkGameplayRunning =
                 m_networkGamePhase ==
                 NetworkGamePhase::Running;
+
+            const bool shouldUpdateGameplayCamera =
+                m_applicationState ==
+                ApplicationState::LocalGame ||
+                (
+                    (
+                        m_applicationState ==
+                        ApplicationState::HostGame ||
+                        m_applicationState ==
+                        ApplicationState::JoinGame
+                        ) &&
+                    networkGameplayRunning
+                    );
+
+            if (shouldUpdateGameplayCamera)
+            {
+                UpdateGameplayCamera(
+                    frameTime
+                );
+            }
 
             if (m_applicationState ==
                 ApplicationState::JoinGame &&
@@ -689,6 +715,140 @@ namespace Echo
     {
         m_gameSession.Update(
             playerCommands,
+            deltaTime
+        );
+    }
+
+    std::size_t Application::GetCameraPlayerIndex()
+        const noexcept
+    {
+        if (m_applicationState ==
+            ApplicationState::HostGame ||
+            m_applicationState ==
+            ApplicationState::JoinGame)
+        {
+            return
+                m_localNetworkPlayerIndex;
+        }
+
+        return 0;
+    }
+
+    void Application::ResetGameplayCamera()
+        noexcept
+    {
+        const std::size_t playerIndex =
+            GetCameraPlayerIndex();
+
+        const Player& player =
+            m_gameSession.GetPlayer(
+                playerIndex
+            );
+
+        m_gameplayCamera.SnapTo(
+            player.GetPositionX(),
+            player.GetPositionY()
+        );
+    }
+
+    void Application::UpdateGameplayCamera(
+        double deltaTime
+    ) noexcept
+    {
+        const std::size_t playerIndex =
+            GetCameraPlayerIndex();
+
+        const Player& player =
+            m_gameSession.GetPlayer(
+                playerIndex
+            );
+
+        float cameraLeadX = 0.0f;
+        float cameraLeadY = 0.0f;
+
+        if (m_mouse.IsInsideWindow())
+        {
+            const float clientWidth =
+                static_cast<float>(
+                    m_window.GetClientWidth()
+                    );
+
+            const float clientHeight =
+                static_cast<float>(
+                    m_window.GetClientHeight()
+                    );
+
+            if (clientWidth > 0.0f &&
+                clientHeight > 0.0f)
+            {
+                const float normalizedMouseX =
+                    2.0f *
+                    static_cast<float>(
+                        m_mouse.GetX()
+                        ) /
+                    clientWidth -
+                    1.0f;
+
+                const float normalizedMouseY =
+                    1.0f -
+                    2.0f *
+                    static_cast<float>(
+                        m_mouse.GetY()
+                        ) /
+                    clientHeight;
+
+                cameraLeadX =
+                    normalizedMouseX *
+                    m_aspectRatio *
+                    CameraMouseLeadFactor;
+
+                cameraLeadY =
+                    normalizedMouseY *
+                    CameraMouseLeadFactor;
+
+                const float leadLengthSquared =
+                    cameraLeadX *
+                    cameraLeadX +
+                    cameraLeadY *
+                    cameraLeadY;
+
+                const float maximumLengthSquared =
+                    MaximumCameraLeadDistance *
+                    MaximumCameraLeadDistance;
+
+                if (leadLengthSquared >
+                    maximumLengthSquared)
+                {
+                    const float inverseLength =
+                        1.0f /
+                        std::sqrt(
+                            leadLengthSquared
+                        );
+
+                    const float scale =
+                        MaximumCameraLeadDistance *
+                        inverseLength;
+
+                    cameraLeadX *=
+                        scale;
+
+                    cameraLeadY *=
+                        scale;
+                }
+            }
+        }
+
+        const float targetX =
+            player.GetPositionX() +
+            cameraLeadX;
+
+        const float targetY =
+            player.GetPositionY() +
+            cameraLeadY;
+
+        m_gameplayCamera.Update(
+            targetX,
+            targetY,
             deltaTime
         );
     }
@@ -1473,6 +1633,8 @@ namespace Echo
             {
                 m_gameSession.Reset();
 
+                ResetGameplayCamera();
+
                 EnterState(
                     ApplicationState::LocalGame
                 );
@@ -1490,6 +1652,8 @@ namespace Echo
                     InitialHostPlayerIndex,
                     InitialClientPlayerIndex
                 );
+
+                ResetGameplayCamera();
 
                 // Create a new identity for this
                 // authoritative game session.
@@ -1542,6 +1706,8 @@ namespace Echo
                     InitialClientPlayerIndex,
                     InitialHostPlayerIndex
                 );
+
+                ResetGameplayCamera();
 
                 // A new client does not know the session
                 // identity until SessionWelcome arrives.
@@ -1812,6 +1978,12 @@ namespace Echo
 
     void Application::RenderGameplay()
     {
+        const float cameraX =
+            m_gameplayCamera.GetPositionX();
+
+        const float cameraY =
+            m_gameplayCamera.GetPositionY();
+
         const Level& level =
             m_gameSession.GetLevel();
 
@@ -1819,8 +1991,8 @@ namespace Echo
             level.GetBlocks())
         {
             m_quadRenderer.Draw(
-                block.positionX,
-                block.positionY,
+                block.positionX - cameraX,
+                block.positionY - cameraY,
                 block.width,
                 block.height,
                 block.rotation,
@@ -1832,8 +2004,8 @@ namespace Echo
             m_gameSession.GetPlayers())
         {
             m_quadRenderer.Draw(
-                player.GetPositionX(),
-                player.GetPositionY(),
+                player.GetPositionX() - cameraX,
+                player.GetPositionY() - cameraY,
                 player.GetWidth(),
                 player.GetHeight(),
                 player.GetRotation(),
@@ -1845,8 +2017,8 @@ namespace Echo
             m_gameSession.GetProjectiles())
         {
             m_quadRenderer.Draw(
-                projectile.GetPositionX(),
-                projectile.GetPositionY(),
+                projectile.GetPositionX() - cameraX,
+                projectile.GetPositionY() - cameraY,
                 projectile.GetWidth(),
                 projectile.GetHeight(),
                 projectile.GetRotation(),
@@ -2188,10 +2360,12 @@ namespace Echo
             clientHeight;
 
         input.aimTargetX =
+            m_gameplayCamera.GetPositionX() +
             normalizedMouseX *
             m_aspectRatio;
 
         input.aimTargetY =
+            m_gameplayCamera.GetPositionY() +
             normalizedMouseY;
 
         input.hasAimTarget =
@@ -2542,6 +2716,8 @@ namespace Echo
                     playerState.rotation
                 );
             }
+
+            ResetGameplayCamera();
 
             m_hasReceivedWorldSnapshot =
                 true;

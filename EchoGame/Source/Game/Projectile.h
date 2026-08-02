@@ -29,6 +29,8 @@ namespace Echo
             float remainingLifetime
         ) noexcept;
 
+        void Expire() noexcept;
+
         EntityId GetEntityId()
             const noexcept;
 
@@ -43,6 +45,9 @@ namespace Echo
         float GetRotation() const noexcept;
         float GetWidth() const noexcept;
         float GetHeight() const noexcept;
+
+        float GetCollisionRadius()
+            const noexcept;
 
     private:
         EntityId m_entityId =
@@ -60,5 +65,8 @@ namespace Echo
 
         float m_width = 0.18f;
         float m_height = 0.06f;
+
+        float m_collisionRadius =
+            0.09f;
     };
 }

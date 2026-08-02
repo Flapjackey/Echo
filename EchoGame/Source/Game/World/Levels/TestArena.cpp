@@ -9,76 +9,91 @@ namespace Echo
         // Player spawn points.
         level.SetPlayerSpawn(
             0,
-            -1.05f,
+            -0.80f,
             0.0f
         );
 
         level.SetPlayerSpawn(
             1,
-            1.05f,
+            0.80f,
             0.0f
         );
 
         // Arena boundary: top.
         level.AddBlock(
             0.0f,
-            0.88f,
-            3.30f,
-            0.10f
+            2.00f,
+            6.10f,
+            0.12f
         );
 
         // Arena boundary: bottom.
         level.AddBlock(
             0.0f,
-            -0.88f,
-            3.30f,
-            0.10f
+            -2.00f,
+            6.10f,
+            0.12f
         );
 
         // Arena boundary: left.
         level.AddBlock(
-            -1.68f,
+            -3.00f,
             0.0f,
-            0.10f,
-            1.85f
+            0.12f,
+            4.12f
         );
 
         // Arena boundary: right.
         level.AddBlock(
-            1.68f,
+            3.00f,
             0.0f,
-            0.10f,
-            1.85f
+            0.12f,
+            4.12f
         );
 
-        // Upper test obstacle.
+        // Upper-left horizontal wall.
         level.AddBlock(
-            -0.65f,
-            0.42f,
-            0.55f,
-            0.14f
+            -1.35f,
+            0.80f,
+            1.20f,
+            0.18f
         );
 
-        // Lower test obstacle.
+        // Lower-right horizontal wall.
         level.AddBlock(
-            0.65f,
-            -0.42f,
-            0.55f,
-            0.14f
+            1.30f,
+            -0.80f,
+            1.20f,
+            0.18f
         );
 
         // Central vertical cover.
         level.AddBlock(
             0.0f,
             0.0f,
-            0.16f,
-            0.62f
+            0.18f,
+            1.20f
         );
 
-        // Player 1 spawn marker.
-        // It is decorative and will not block movement.
+        // Upper-right vertical wall.
         level.AddBlock(
-            -1.05f,
+            1.65f,
+            0.85f,
+            0.18f,
+            0.90f
+        );
+
+        // Lower-left vertical wall.
+        level.AddBlock(
+            -1.65f,
+            -0.85f,
+            0.18f,
+            0.90f
+        );
+
+        // Decorative Player 1 spawn marker.
+        level.AddBlock(
+            -0.80f,
             0.0f,
             0.24f,
             0.24f,
@@ -86,9 +101,9 @@ namespace Echo
             false
         );
 
-        // Player 2 spawn marker.
+        // Decorative Player 2 spawn marker.
         level.AddBlock(
-            1.05f,
+            0.80f,
             0.0f,
             0.24f,
             0.24f,

@@ -138,6 +138,8 @@
     <ClCompile Include="Source\Game\Projectile.cpp" />
     <ClCompile Include="Source\Game\World\Level.cpp" />
     <ClCompile Include="Source\Game\World\Levels\TestArena.cpp" />
+    <ClCompile Include="Source\Game\World\WorldCollision.cpp" />
+    <ClCompile Include="Source\Graphics\Camera2D.cpp" />
     <ClCompile Include="Source\Graphics\GraphicsDevice.cpp" />
     <ClCompile Include="Source\Graphics\QuadRenderer.cpp" />
     <ClCompile Include="Source\Graphics\TextRenderer.cpp" />
@@ -165,6 +167,8 @@
     <ClInclude Include="Source\Game\Projectile.h" />
     <ClInclude Include="Source\Game\World\Level.h" />
     <ClInclude Include="Source\Game\World\Levels\TestArena.h" />
+    <ClInclude Include="Source\Game\World\WorldCollision.h" />
+    <ClInclude Include="Source\Graphics\Camera2D.h" />
     <ClInclude Include="Source\Graphics\GraphicsDevice.h" />
     <ClInclude Include="Source\Graphics\QuadRenderer.h" />
     <ClInclude Include="Source\Graphics\TextRenderer.h" />

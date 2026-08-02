@@ -77,6 +77,10 @@ namespace Echo
         );
 
     private:
+        void UpdateProjectiles(
+            double deltaTime
+        ) noexcept;
+
         EntityId AllocateProjectileEntityId()
             noexcept;
 
