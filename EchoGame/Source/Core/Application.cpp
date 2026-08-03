@@ -53,12 +53,6 @@ namespace
         ReconnectAttemptInterval =
         1.0;
 
-    constexpr float CameraMouseLeadFactor =
-        0.38f;
-
-    constexpr float MaximumCameraLeadDistance =
-        0.65f;
-
     constexpr double
         RemotePlayerInterpolationDuration =
         1.0 / 30.0;
@@ -269,7 +263,13 @@ namespace Echo
 
             if (shouldUpdateGameplayCamera)
             {
-                UpdateGameplayCamera(
+                m_gameplayCameraController.Update(
+                    m_gameplayCamera,
+                    m_gameSession,
+                    GetCameraPlayerIndex(),
+                    m_mouse,
+                    m_window,
+                    m_aspectRatio,
                     frameTime
                 );
             }
@@ -695,7 +695,7 @@ namespace Echo
 
             if (isSimulationRunning)
             {
-                UpdateStatistics(
+                m_frameStatistics.Update(
                     frameTime
                 );
             }
@@ -732,125 +732,6 @@ namespace Echo
         }
 
         return 0;
-    }
-
-    void Application::ResetGameplayCamera()
-        noexcept
-    {
-        const std::size_t playerIndex =
-            GetCameraPlayerIndex();
-
-        const Player& player =
-            m_gameSession.GetPlayer(
-                playerIndex
-            );
-
-        m_gameplayCamera.SnapTo(
-            player.GetPositionX(),
-            player.GetPositionY()
-        );
-    }
-
-    void Application::UpdateGameplayCamera(
-        double deltaTime
-    ) noexcept
-    {
-        const std::size_t playerIndex =
-            GetCameraPlayerIndex();
-
-        const Player& player =
-            m_gameSession.GetPlayer(
-                playerIndex
-            );
-
-        float cameraLeadX = 0.0f;
-        float cameraLeadY = 0.0f;
-
-        if (m_mouse.IsInsideWindow())
-        {
-            const float clientWidth =
-                static_cast<float>(
-                    m_window.GetClientWidth()
-                    );
-
-            const float clientHeight =
-                static_cast<float>(
-                    m_window.GetClientHeight()
-                    );
-
-            if (clientWidth > 0.0f &&
-                clientHeight > 0.0f)
-            {
-                const float normalizedMouseX =
-                    2.0f *
-                    static_cast<float>(
-                        m_mouse.GetX()
-                        ) /
-                    clientWidth -
-                    1.0f;
-
-                const float normalizedMouseY =
-                    1.0f -
-                    2.0f *
-                    static_cast<float>(
-                        m_mouse.GetY()
-                        ) /
-                    clientHeight;
-
-                cameraLeadX =
-                    normalizedMouseX *
-                    m_aspectRatio *
-                    CameraMouseLeadFactor;
-
-                cameraLeadY =
-                    normalizedMouseY *
-                    CameraMouseLeadFactor;
-
-                const float leadLengthSquared =
-                    cameraLeadX *
-                    cameraLeadX +
-                    cameraLeadY *
-                    cameraLeadY;
-
-                const float maximumLengthSquared =
-                    MaximumCameraLeadDistance *
-                    MaximumCameraLeadDistance;
-
-                if (leadLengthSquared >
-                    maximumLengthSquared)
-                {
-                    const float inverseLength =
-                        1.0f /
-                        std::sqrt(
-                            leadLengthSquared
-                        );
-
-                    const float scale =
-                        MaximumCameraLeadDistance *
-                        inverseLength;
-
-                    cameraLeadX *=
-                        scale;
-
-                    cameraLeadY *=
-                        scale;
-                }
-            }
-        }
-
-        const float targetX =
-            player.GetPositionX() +
-            cameraLeadX;
-
-        const float targetY =
-            player.GetPositionY() +
-            cameraLeadY;
-
-        m_gameplayCamera.Update(
-            targetX,
-            targetY,
-            deltaTime
-        );
     }
 
     void Application::SetNetworkPlayerOwnership(
@@ -1633,7 +1514,11 @@ namespace Echo
             {
                 m_gameSession.Reset();
 
-                ResetGameplayCamera();
+                m_gameplayCameraController.Reset(
+                    m_gameplayCamera,
+                    m_gameSession,
+                    GetCameraPlayerIndex()
+                );
 
                 EnterState(
                     ApplicationState::LocalGame
@@ -1653,7 +1538,11 @@ namespace Echo
                     InitialClientPlayerIndex
                 );
 
-                ResetGameplayCamera();
+                m_gameplayCameraController.Reset(
+                    m_gameplayCamera,
+                    m_gameSession,
+                    GetCameraPlayerIndex()
+                );
 
                 // Create a new identity for this
                 // authoritative game session.
@@ -1707,7 +1596,11 @@ namespace Echo
                     InitialHostPlayerIndex
                 );
 
-                ResetGameplayCamera();
+                m_gameplayCameraController.Reset(
+                    m_gameplayCamera,
+                    m_gameSession,
+                    GetCameraPlayerIndex()
+                );
 
                 // A new client does not know the session
                 // identity until SessionWelcome arrives.
@@ -1970,8 +1863,7 @@ namespace Echo
         m_applicationState =
             state;
 
-        m_statisticsTimer = 0.0;
-        m_frameCount = 0;
+        m_frameStatistics.ResetSampling();
 
         UpdateMenuTitle();
     }
@@ -2056,9 +1948,11 @@ namespace Echo
             << std::fixed
             << std::setprecision(1)
             << L"FPS: "
-            << m_framesPerSecond
+            << m_frameStatistics.
+            GetFramesPerSecond()
             << L" | Frame: "
-            << m_frameTimeMilliseconds
+            << m_frameStatistics.
+            GetFrameTimeMilliseconds()
             << L" ms"
             << L" | P1: "
             << std::setprecision(2)
@@ -2717,7 +2611,11 @@ namespace Echo
                 );
             }
 
-            ResetGameplayCamera();
+            m_gameplayCameraController.Reset(
+                m_gameplayCamera,
+                m_gameSession,
+                GetCameraPlayerIndex()
+            );
 
             m_hasReceivedWorldSnapshot =
                 true;
@@ -3017,35 +2915,5 @@ namespace Echo
 
         m_hasReceivedWorldSnapshot =
             false;
-    }
-
-    void Application::UpdateStatistics(
-        double deltaTime
-    )
-    {
-        m_statisticsTimer +=
-            deltaTime;
-
-        ++m_frameCount;
-
-        if (m_statisticsTimer < 1.0)
-        {
-            return;
-        }
-
-        m_framesPerSecond =
-            static_cast<double>(
-                m_frameCount
-                ) /
-            m_statisticsTimer;
-
-        m_frameTimeMilliseconds =
-            m_framesPerSecond > 0.0
-            ? 1000.0 /
-            m_framesPerSecond
-            : 0.0;
-
-        m_statisticsTimer = 0.0;
-        m_frameCount = 0;
     }
 }
