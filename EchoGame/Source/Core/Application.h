@@ -106,6 +106,15 @@ namespace Echo
 
         void UpdateNetworkSynchronization();
 
+        bool UpdateNetworkConnectionFrame(
+            double frameTime
+        );
+
+        void UpdateNetworkGameplayFrame(
+            double frameTime,
+            bool networkGameplayRunning
+        );
+
         void BeginConnectionRecovery();
 
         void UpdateConnectionRecovery(
@@ -122,8 +131,14 @@ namespace Echo
             ApplicationState state
         );
 
+        void RenderFrame();
+
+        void RenderNetworkOverlay();
+
         void RenderGameplay();
+
         void RenderPlaceholder();
+
         void RenderDebugOverlay();
 
         void UpdateMenuTitle();
