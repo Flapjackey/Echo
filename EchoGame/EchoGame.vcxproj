@@ -133,6 +133,8 @@
   <ItemGroup>
     <ClCompile Include="Source\Core\Application.cpp" />
     <ClCompile Include="Source\Core\Clock.cpp" />
+    <ClCompile Include="Source\Core\FrameStatistics.cpp" />
+    <ClCompile Include="Source\Game\Camera\GameplayCameraController.cpp" />
     <ClCompile Include="Source\Game\GameSession.cpp" />
     <ClCompile Include="Source\Game\Player.cpp" />
     <ClCompile Include="Source\Game\Projectile.cpp" />
@@ -159,7 +161,9 @@
     <ClInclude Include="Source\Core\ApplicationState.h" />
     <ClInclude Include="Source\Core\Clock.h" />
     <ClInclude Include="Source\Core\EntityId.h" />
+    <ClInclude Include="Source\Core\FrameStatistics.h" />
     <ClInclude Include="Source\Core\GameSettings.h" />
+    <ClInclude Include="Source\Game\Camera\GameplayCameraController.h" />
     <ClInclude Include="Source\Game\GameMigrationState.h" />
     <ClInclude Include="Source\Game\GameSession.h" />
     <ClInclude Include="Source\Game\Player.h" />

@@ -2,7 +2,10 @@
 
 #include "Core/ApplicationState.h"
 #include "Core/Clock.h"
+#include "Core/FrameStatistics.h"
 #include "Core/GameSettings.h"
+
+#include "Game/Camera/GameplayCameraController.h"
 #include "Game/GameSession.h"
 #include "Game/PlayerCommand.h"
 #include "Graphics/Camera2D.h"
@@ -39,13 +42,6 @@ namespace Echo
             playerCommands,
             double deltaTime
         );
-
-        void UpdateGameplayCamera(
-            double deltaTime
-        ) noexcept;
-
-        void ResetGameplayCamera()
-            noexcept;
 
         std::size_t GetCameraPlayerIndex()
             const noexcept;
@@ -128,10 +124,6 @@ namespace Echo
         void RenderDebugOverlay();
 
         void UpdateMenuTitle();
-
-        void UpdateStatistics(
-            double deltaTime
-        );
 
         Keyboard m_keyboard;
         Mouse m_mouse;
@@ -240,6 +232,9 @@ namespace Echo
 
         Camera2D m_gameplayCamera;
 
+        GameplayCameraController
+            m_gameplayCameraController;
+
         GameSession m_gameSession;
 
         MainMenu m_mainMenu;
@@ -262,11 +257,7 @@ namespace Echo
 
         bool m_exitRequested = false;
 
-        double m_statisticsTimer = 0.0;
-        unsigned int m_frameCount = 0;
-
-        double m_framesPerSecond = 0.0;
-        double m_frameTimeMilliseconds = 0.0;
+        FrameStatistics m_frameStatistics;
 
         float m_aspectRatio =
             16.0f / 9.0f;
