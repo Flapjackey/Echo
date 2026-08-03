@@ -132,6 +132,8 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Source\Core\Application.cpp" />
+    <ClCompile Include="Source\Core\Application\Input\ApplicationMenuInput.cpp" />
+    <ClCompile Include="Source\Core\Application\Input\ApplicationPlayerInput.cpp" />
     <ClCompile Include="Source\Core\Clock.cpp" />
     <ClCompile Include="Source\Core\FrameStatistics.cpp" />
     <ClCompile Include="Source\Game\Camera\GameplayCameraController.cpp" />

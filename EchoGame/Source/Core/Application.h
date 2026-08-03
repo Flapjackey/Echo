@@ -37,6 +37,9 @@ namespace Echo
         int Run();
 
     private:
+        static std::uint64_t
+            GenerateRuntimeIdentifier();
+
         void FixedUpdate(
             const GameSession::PlayerCommands&
             playerCommands,
