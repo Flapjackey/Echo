@@ -132,6 +132,8 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Source\Core\Application.cpp" />
+    <ClCompile Include="Source\Core\Application\Camera\ApplicationCamera.cpp" />
+    <ClCompile Include="Source\Core\Application\Frame\ApplicationFrame.cpp" />
     <ClCompile Include="Source\Core\Application\Input\ApplicationMenuInput.cpp" />
     <ClCompile Include="Source\Core\Application\Input\ApplicationPlayerInput.cpp" />
     <ClCompile Include="Source\Core\Application\Network\ApplicationHandshake.cpp" />
@@ -141,6 +143,7 @@
     <ClCompile Include="Source\Core\Application\Network\ApplicationReplication.cpp" />
     <ClCompile Include="Source\Core\Application\Rendering\ApplicationFrameRendering.cpp" />
     <ClCompile Include="Source\Core\Application\Rendering\ApplicationRendering.cpp" />
+    <ClCompile Include="Source\Core\Application\Simulation\ApplicationSimulation.cpp" />
     <ClCompile Include="Source\Core\Application\State\ApplicationState.cpp" />
     <ClCompile Include="Source\Core\Clock.cpp" />
     <ClCompile Include="Source\Core\FrameStatistics.cpp" />

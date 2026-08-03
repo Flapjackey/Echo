@@ -40,11 +40,30 @@ namespace Echo
         static std::uint64_t
             GenerateRuntimeIdentifier();
 
+        double BeginApplicationFrame();
+
+        void EndApplicationFrame(
+            double frameTime,
+            bool isSimulationRunning
+        );
+
+        bool UpdateSimulationFrame(
+            double frameTime,
+            double fixedDeltaTime,
+            double& accumulatedTime,
+            bool networkGameplayRunning
+        );
+
         void FixedUpdate(
             const GameSession::PlayerCommands&
             playerCommands,
             double deltaTime
         );
+
+        void UpdateGameplayCameraFrame(
+            double frameTime,
+            bool networkGameplayRunning
+        ) noexcept;
 
         std::size_t GetCameraPlayerIndex()
             const noexcept;
